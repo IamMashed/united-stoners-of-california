@@ -1,13 +1,16 @@
-// Thin data-access layer over supabase-js (PostgREST + Auth). Replaces the
-// MicroblogApiClient from react-microblog. Every method returns `{ data, error }`;
+// Thin data-access layer over supabase-js (PostgREST + Auth + Storage). Replaces
+// the MicroblogApiClient from react-microblog. Every method returns `{ data, error }`;
 // unexpected failures (network down, 5xx) are also reported through `onError`.
 
-export const PAGE_SIZE = 25;
+import { imageExtension } from '../lib/media.js';
 
-const AUTHOR = 'author:profiles(id, username, avatar_url)';
-const POST_SELECT = `id, body, created_at, updated_at, ${AUTHOR}, comments(count)`;
-const COMMENT_SELECT = `id, post_id, body, created_at, updated_at, ${AUTHOR}`;
-const PROFILE_SELECT = 'id, username, about_me, avatar_url, created_at, last_seen';
+export const PAGE_SIZE = 25;
+export const MEDIA_BUCKET = 'media';
+
+const AUTHOR = 'author:profiles(id, username, avatar_url, is_admin)';
+const POST_SELECT = `id, body, image_paths, created_at, updated_at, ${AUTHOR}, comments(count)`;
+const COMMENT_SELECT = `id, post_id, body, image_paths, created_at, updated_at, ${AUTHOR}`;
+const PROFILE_SELECT = 'id, username, about_me, avatar_url, is_admin, created_at, last_seen';
 
 function normalizePost(row) {
   const { comments, ...post } = row;
@@ -43,14 +46,64 @@ export default class SupabaseApiClient {
     return { data: result.data ?? null, error: result.error ?? null };
   }
 
+  // ---- media ---------------------------------------------------------------
+
+  mediaUrl(path) {
+    return this.supabase.storage.from(MEDIA_BUCKET).getPublicUrl(path).data.publicUrl;
+  }
+
+  // Uploads into `<user id>/<uuid>.<ext>` (the only folder RLS lets the user write).
+  async uploadImages(files) {
+    if (!files?.length) {
+      return { data: [], error: null };
+    }
+    const { data: { session } } = await this.supabase.auth.getSession();
+    if (!session) {
+      return { data: null, error: { message: 'You need to be logged in to upload images.' } };
+    }
+    const bucket = this.supabase.storage.from(MEDIA_BUCKET);
+    const paths = [];
+    for (const file of files) {
+      const path = `${session.user.id}/${crypto.randomUUID()}.${imageExtension(file.type)}`;
+      const { error } = await bucket.upload(path, file, {
+        contentType: file.type, cacheControl: '3600', upsert: false,
+      });
+      if (error) {
+        await this.removeImages(paths);
+        return { data: null, error };
+      }
+      paths.push(path);
+    }
+    return { data: paths, error: null };
+  }
+
+  async removeImages(paths) {
+    if (paths.length) {
+      await this.supabase.storage.from(MEDIA_BUCKET).remove(paths);
+    }
+  }
+
+  // Uploads the files, then inserts the row; removes the uploads if the insert fails.
+  async insertWithImages(table, values, files, select) {
+    const { data: paths, error: uploadError } = await this.uploadImages(files);
+    if (uploadError) {
+      return { data: null, error: uploadError };
+    }
+    const result = await this.run(
+      this.supabase.from(table).insert({ ...values, image_paths: paths }).select(select).single()
+    );
+    if (result.error) {
+      await this.removeImages(paths);
+    }
+    return result;
+  }
+
   // ---- posts ---------------------------------------------------------------
 
-  // kind: 'feed' | 'explore' | 'user'. Keyset pagination on id (newest first).
-  async listPosts({ kind = 'feed', authorId, beforeId } = {}) {
-    let query = kind === 'feed'
-      ? this.supabase.rpc('feed').select(POST_SELECT)
-      : this.supabase.from('posts').select(POST_SELECT);
-    if (kind === 'user') {
+  // Newest first, keyset pagination on id. `authorId` limits to one author.
+  async listPosts({ authorId, beforeId } = {}) {
+    let query = this.supabase.from('posts').select(POST_SELECT);
+    if (authorId) {
       query = query.eq('author_id', authorId);
     }
     if (beforeId) {
@@ -75,15 +128,19 @@ export default class SupabaseApiClient {
     return { data: data && normalizePost(data), error };
   }
 
-  async createPost(body) {
-    const { data, error } = await this.run(
-      this.supabase.from('posts').insert({ body: body.trim() }).select(POST_SELECT).single()
+  async createPost({ body, files }) {
+    const { data, error } = await this.insertWithImages(
+      'posts', { body: body.trim() }, files, POST_SELECT
     );
     return { data: data && normalizePost(data), error };
   }
 
-  async deletePost(id) {
-    return this.run(this.supabase.from('posts').delete().eq('id', id));
+  async deletePost(post) {
+    const result = await this.run(this.supabase.from('posts').delete().eq('id', post.id));
+    if (!result.error) {
+      await this.removeImages(post.image_paths || []);
+    }
+    return result;
   }
 
   // ---- comments ------------------------------------------------------------
@@ -95,18 +152,28 @@ export default class SupabaseApiClient {
     );
   }
 
-  async createComment(postId, body) {
+  async listCommentsByUser(userId) {
     return this.run(
-      this.supabase.from('comments').insert({ post_id: postId, body: body.trim() })
-        .select(COMMENT_SELECT).single()
+      this.supabase.from('comments').select(COMMENT_SELECT)
+        .eq('author_id', userId).order('id', { ascending: false }).limit(PAGE_SIZE)
     );
   }
 
-  async deleteComment(id) {
-    return this.run(this.supabase.from('comments').delete().eq('id', id));
+  async createComment(postId, { body, files }) {
+    return this.insertWithImages(
+      'comments', { post_id: postId, body: body.trim() }, files, COMMENT_SELECT
+    );
   }
 
-  // ---- profiles & follows --------------------------------------------------
+  async deleteComment(comment) {
+    const result = await this.run(this.supabase.from('comments').delete().eq('id', comment.id));
+    if (!result.error) {
+      await this.removeImages(comment.image_paths || []);
+    }
+    return result;
+  }
+
+  // ---- profiles ------------------------------------------------------------
 
   async getProfileById(id) {
     return this.run(this.supabase.from('profiles').select(PROFILE_SELECT).eq('id', id).maybeSingle());
@@ -132,24 +199,5 @@ export default class SupabaseApiClient {
 
   async touchLastSeen() {
     return this.run(this.supabase.rpc('touch_last_seen'));
-  }
-
-  async isFollowing(followerId, followedId) {
-    const { data, error } = await this.run(
-      this.supabase.from('follows').select('followed_id')
-        .eq('follower_id', followerId).eq('followed_id', followedId).maybeSingle()
-    );
-    return { data: error ? null : data !== null, error };
-  }
-
-  async follow(followedId) {
-    return this.run(this.supabase.from('follows').insert({ followed_id: followedId }));
-  }
-
-  async unfollow(followerId, followedId) {
-    return this.run(
-      this.supabase.from('follows').delete()
-        .eq('follower_id', followerId).eq('followed_id', followedId)
-    );
   }
 }

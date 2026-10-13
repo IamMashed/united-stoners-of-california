@@ -1,10 +1,10 @@
 import Body from '../components/Body';
 import Posts from '../components/Posts';
 
-export default function ExplorePage() {
+export default function HomePage() {
   return (
-    <Body sidebar>
-      <Posts kind="explore" />
+    <Body>
+      <Posts />
     </Body>
   );
 }

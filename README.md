@@ -13,10 +13,25 @@ strains, growers, dispensaries, grow and extraction tips.
 
 ## Features
 
-- Sign up / log in with email + password (email confirmation, password reset) or GitHub / Google OAuth
-- Feed (your posts + people you follow), Explore (everyone), user profiles, follow / unfollow
-- Posts with comments; authors can delete their own posts and comments
-- Edit profile (username, about me, email) and change password
+- **Anyone** can read posts, comments and profiles. No account needed.
+- **Members** (email + password, or GitHub / Google OAuth) can comment. Comments can include
+  up to 4 photos (JPEG/PNG/WebP/GIF, 5 MB each), clickable links, and embedded videos from
+  YouTube, Vimeo, TikTok and Instagram links. Members can delete their own comments.
+- **The superuser** (exactly one account) writes the posts, which support the same media,
+  and can delete any comment.
+
+All of this is enforced in the database (RLS + column grants + storage policies), not only in
+the UI: a member calling the API directly still cannot create a post.
+
+### Superuser
+
+Sign up normally, then promote the account (at most one superuser; this replaces any previous one):
+
+```bash
+npm run db -- make-admin prod you@example.com
+```
+
+On dev, the seed makes `kushking@example.com` the superuser.
 
 ## Environments
 
@@ -42,7 +57,7 @@ npm install
 npm run dev        # http://localhost:5173, backed by usoc-dev
 ```
 
-Seed logins on dev (password `password123`): `kushking@example.com`, `hashqueen@example.com`.
+Seed logins on dev (password `password123`): `kushking@example.com` (superuser), `hashqueen@example.com` (member).
 
 ## Database workflow
 
@@ -102,7 +117,9 @@ in the dashboard.
 src/
   api/SupabaseApiClient.js   data access (PostgREST queries, RPCs); replaces MicroblogApiClient
   contexts/                  Flash, Api and User (auth session + profile) providers
-  components/ pages/         UI, ported from react-microblog; PostPage adds comments
+  components/ pages/         UI, ported from react-microblog (Composer = text + photo uploads,
+                             Content = links, images and video embeds)
+  lib/embeds.js              link detection + allow-listed video embeds
 supabase/
   environments.json          dev/prod project refs and auth settings
   migrations/                schema, triggers, RPCs, grants, RLS

@@ -2,14 +2,15 @@ import { useState, useEffect } from 'react';
 import Stack from 'react-bootstrap/Stack';
 import Spinner from 'react-bootstrap/Spinner';
 import Button from 'react-bootstrap/Button';
-import { useParams, useNavigate } from 'react-router-dom';
+import Badge from 'react-bootstrap/Badge';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import Body from '../components/Body';
 import Avatar from '../components/Avatar';
 import Posts from '../components/Posts';
+import Post from '../components/Post';
 import TimeAgo from '../components/TimeAgo';
 import { useApi } from '../contexts/ApiProvider';
 import { useUser } from '../contexts/UserProvider';
-import { useFlash } from '../contexts/FlashProvider';
 
 // Keyed on the URL param so navigating between profiles starts from a clean state.
 export default function UserPage() {
@@ -19,53 +20,21 @@ export default function UserPage() {
 
 function UserProfile({ username }) {
   const [profile, setProfile] = useState();
-  // null = own profile, true/false = following state, undefined = loading
-  const [isFollower, setIsFollower] = useState();
-  const navigate = useNavigate();
   const api = useApi();
-  const { user: loggedInUser } = useUser();
-  const flash = useFlash();
-  const me = loggedInUser.id;
+  const { user } = useUser();
+  const navigate = useNavigate();
 
   useEffect(() => {
     let active = true;
     (async () => {
       const { data, error } = await api.getProfileByUsername(username);
-      if (!active) return;
-      if (error || !data) {
-        setProfile(null);
-        return;
-      }
-      setProfile(data);
-      if (data.id === me) {
-        setIsFollower(null);
-      }
-      else {
-        const { data: following } = await api.isFollowing(me, data.id);
-        if (active) setIsFollower(following);
-      }
+      if (active) setProfile(error || !data ? null : data);
     })();
     return () => { active = false; };
-  }, [username, api, me]);
-
-  const follow = async () => {
-    const { error } = await api.follow(profile.id);
-    if (!error) {
-      flash(<>You are now following <b>{profile.username}</b>.</>, 'success');
-      setIsFollower(true);
-    }
-  };
-
-  const unfollow = async () => {
-    const { error } = await api.unfollow(me, profile.id);
-    if (!error) {
-      flash(<>You have unfollowed <b>{profile.username}</b>.</>, 'success');
-      setIsFollower(false);
-    }
-  };
+  }, [username, api]);
 
   return (
-    <Body sidebar>
+    <Body>
       {profile === undefined ?
         <Spinner animation="border" />
       : profile === null ?
@@ -75,27 +44,62 @@ function UserProfile({ username }) {
           <Stack direction="horizontal" gap={4} className="Profile">
             <Avatar user={profile} size={128} />
             <div>
-              <h1>{profile.username}</h1>
+              <h1>
+                {profile.username}{' '}
+                {profile.is_admin && <Badge bg="success" className="align-middle fs-6">Founder</Badge>}
+              </h1>
               {profile.about_me && <h5 className="AboutMe">{profile.about_me}</h5>}
               <p>
                 Member since: <TimeAgo isoDate={profile.created_at} />
                 <br />
                 Last seen: <TimeAgo isoDate={profile.last_seen} />
               </p>
-              {isFollower === null &&
+              {user?.id === profile.id &&
                 <Button variant="success" onClick={() => navigate('/edit')}>Edit</Button>
-              }
-              {isFollower === false &&
-                <Button variant="success" onClick={follow}>Follow</Button>
-              }
-              {isFollower === true &&
-                <Button variant="outline-success" onClick={unfollow}>Unfollow</Button>
               }
             </div>
           </Stack>
-          <Posts kind="user" authorId={profile.id} />
+          {profile.is_admin ?
+            <>
+              <h4 className="mt-4">Posts</h4>
+              <Posts authorId={profile.id} />
+            </>
+          :
+            <UserComments userId={profile.id} />
+          }
         </>
       }
     </Body>
+  );
+}
+
+function UserComments({ userId }) {
+  const [comments, setComments] = useState();
+  const api = useApi();
+
+  useEffect(() => {
+    let active = true;
+    api.listCommentsByUser(userId).then(({ data, error }) => {
+      if (active) setComments(error ? null : data);
+    });
+    return () => { active = false; };
+  }, [api, userId]);
+
+  return (
+    <>
+      <h4 className="mt-4">Recent comments</h4>
+      {comments === undefined ?
+        <Spinner animation="border" size="sm" />
+      : comments === null ?
+        <p>Could not retrieve comments.</p>
+      : comments.length === 0 ?
+        <p>No comments yet.</p>
+      :
+        comments.map((comment) =>
+          <Post key={comment.id} item={comment} avatarSize={32} className="Comment"
+            footer={<Link to={'/post/' + comment.post_id}>View post</Link>} />
+        )
+      }
+    </>
   );
 }

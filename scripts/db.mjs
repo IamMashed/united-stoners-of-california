@@ -12,6 +12,8 @@
 //   test      run supabase/tests/database/*.test.sql with pgTAP (dev only; always rolled back)
 //   auth      push auth settings (site URL, redirects, confirmations, password length)
 //   env       write .env.<mode> with the project URL and publishable key
+//   make-admin <email>   make that account the single superuser (post author)
+//   query "<sql>"        run ad-hoc SQL and print the rows as JSON
 //
 // Auth: SUPABASE_ACCESS_TOKEN, or the token saved by `supabase login` (macOS Keychain).
 
@@ -206,6 +208,27 @@ end $$;`);
     console.log(`${env.name}: auth config updated (site_url=${env.siteUrl})`);
   },
 
+  // Makes the account with this email the one and only superuser (post author).
+  'make-admin'(env) {
+    const email = process.argv[4];
+    if (!email) throw new Error('Usage: node scripts/db.mjs make-admin <env> <email>');
+    // Single request = single transaction; clear the old admin first so the
+    // one-admin unique index is never violated mid-way.
+    const rows = sql(env.ref, `
+      do $$
+      declare target uuid;
+      begin
+        select id into target from auth.users where lower(email) = lower(${quote(email)});
+        if target is null then
+          raise exception 'No account with email %', ${quote(email)};
+        end if;
+        update public.profiles set is_admin = false where is_admin and id <> target;
+        update public.profiles set is_admin = true where id = target;
+      end $$;
+      select username from public.profiles where is_admin;`);
+    console.log(`${env.name}: ${rows[0].username} is now the superuser`);
+  },
+
   // Ad-hoc SQL: node scripts/db.mjs query dev "select ..."
   query(env) {
     const text = process.argv[4];
@@ -232,7 +255,7 @@ end $$;`);
 
 const [command, envName] = process.argv.slice(2);
 if (!commands[command] || !envName) {
-  console.error('Usage: node scripts/db.mjs <status|migrate|seed|test|auth|env> <dev|prod>');
+  console.error('Usage: node scripts/db.mjs <status|migrate|seed|test|auth|env|make-admin|query> <dev|prod> [arg]');
   process.exit(2);
 }
 try {

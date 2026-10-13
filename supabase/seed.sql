@@ -1,7 +1,7 @@
--- Local development seed data. Runs on `supabase db reset`.
+-- Dev seed data. Run with `npm run db:seed` (refused on prod).
 -- Demo logins (password for both: password123):
---   kushking@example.com   / kushking
---   hashqueen@example.com  / hashqueen
+--   kushking@example.com   / kushking   (the superuser: writes posts)
+--   hashqueen@example.com  / hashqueen  (regular member: comments)
 
 do $$
 declare
@@ -35,7 +35,7 @@ begin
 end;
 $$;
 
-update public.profiles set about_me = 'Humboldt grown, Oakland based. Living soil or bust.'
+update public.profiles set about_me = 'Humboldt grown, Oakland based. Living soil or bust.', is_admin = true
   where username = 'kushking';
 update public.profiles set about_me = 'Solventless hash maker. Ice water, low temp, patience.'
   where username = 'hashqueen';
@@ -44,7 +44,7 @@ insert into public.posts (author_id, body, created_at) values
   ('11111111-1111-1111-1111-111111111111',
    'Just picked up some sun-grown Mendo Purps from a small Emerald Triangle farm. Terps are unreal: grape, earth, a little pine.',
    now() - interval '2 days'),
-  ('22222222-2222-2222-2222-222222222222',
+  ('11111111-1111-1111-1111-111111111111',
    'PSA: if your rosin is coming out dark, drop your press temp. 180F on fresh frozen has been the sweet spot for me.',
    now() - interval '1 day'),
   ('11111111-1111-1111-1111-111111111111',
@@ -53,9 +53,6 @@ insert into public.posts (author_id, body, created_at) values
 
 insert into public.comments (post_id, author_id, body) values
   ((select id from public.posts where body like 'PSA:%'),
-   '11111111-1111-1111-1111-111111111111', 'Good call. What micron bags are you using?'),
+   '22222222-2222-2222-2222-222222222222', 'Good call. What micron bags are you using?'),
   ((select id from public.posts where body like 'PSA:%'),
-   '22222222-2222-2222-2222-222222222222', '25u for full melt, 90u for everything else.');
-
-insert into public.follows (follower_id, followed_id) values
-  ('11111111-1111-1111-1111-111111111111', '22222222-2222-2222-2222-222222222222');
+   '11111111-1111-1111-1111-111111111111', '25u for full melt, 90u for everything else.');

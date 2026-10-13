@@ -23,33 +23,16 @@
   color: #fff;
 }
 
-.Sidebar {
-  width: 120px;
-  margin: 5px;
-  position: sticky;
-  top: 62px;
-  align-self: flex-start;
-  align-items: start;
-}
-
-.Sidebar .nav-item {
-  width: 100%;
-}
-
-.Sidebar a, .dropdown-item, .dropdown-item.active {
+.dropdown-item, .dropdown-item.active {
   color: #444;
 }
 
-.Sidebar a:hover {
-  background-color: #eef5ef;
-}
-
-.Sidebar a:visited {
-  color: #444;
-}
-
-.Sidebar .nav-item .active, .dropdown-item.active {
+.dropdown-item.active {
   background-color: #d7ecd9;
+}
+
+.Body {
+  max-width: 860px;
 }
 
 .Content {
@@ -125,4 +108,71 @@
 
 .OAuthButtons {
   max-width: 320px;
+}
+
+.min-w-0 {
+  min-width: 0;
+}
+
+.ImageGallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.ImageGallery img {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  border-radius: 6px;
+}
+
+.VideoEmbed {
+  max-width: 640px;
+  margin-bottom: 12px;
+}
+
+.VideoEmbed iframe {
+  border: 0;
+  border-radius: 6px;
+}
+
+.VideoEmbed-tall iframe {
+  width: 340px;
+  max-width: 100%;
+  height: 600px;
+}
+
+.ImagePreviews {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.ImagePreview {
+  position: relative;
+}
+
+.ImagePreview img {
+  width: 96px;
+  height: 96px;
+  object-fit: cover;
+  border-radius: 6px;
+}
+
+.ImagePreview .btn-close {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  background-color: rgba(255, 255, 255, 0.85);
+  border-radius: 50%;
+  padding: 4px;
+}
+
+.JoinPrompt {
+  margin: 24px 0;
+  padding: 16px;
+  background-color: #f3f8f3;
+  border-radius: 6px;
 }

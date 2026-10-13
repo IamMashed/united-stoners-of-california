@@ -29,7 +29,7 @@ export default function ChangePasswordPage() {
   };
 
   return (
-    <Body sidebar>
+    <Body>
       <h1>Change Your Password</h1>
       <PasswordForm askOldPassword submitLabel="Change Password" onSubmit={onSubmit} />
     </Body>

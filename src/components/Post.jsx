@@ -4,29 +4,28 @@ import Button from 'react-bootstrap/Button';
 import { Link } from 'react-router-dom';
 import Avatar from './Avatar';
 import TimeAgo from './TimeAgo';
+import Content from './Content';
 
-function commentLabel(count) {
+export function commentLabel(count) {
   return count === 1 ? '1 comment' : `${count} comments`;
 }
 
-export default memo(function Post({ post, canDelete, onDelete, showCommentLink = true }) {
+// Used for both posts and comments (`item.author`, `item.body`, `item.image_paths`).
+export default memo(function Post({ item, avatarSize = 48, className = 'Post', canDelete, onDelete, footer }) {
   return (
-    <Stack direction="horizontal" gap={3} className="Post">
-      <Avatar user={post.author} size={48} />
-      <div className="flex-grow-1">
+    <Stack direction="horizontal" gap={3} className={className}>
+      <Avatar user={item.author} size={avatarSize} />
+      <div className="flex-grow-1 min-w-0">
         <p className="mb-1">
-          <Link to={'/user/' + post.author.username}>{post.author.username}</Link>
+          <Link to={'/user/' + item.author.username}>{item.author.username}</Link>
           &nbsp;&mdash;&nbsp;
-          <TimeAgo isoDate={post.created_at} />:
+          <TimeAgo isoDate={item.created_at} />:
         </p>
-        <p className="PostBody">{post.body}</p>
+        <Content body={item.body} imagePaths={item.image_paths} />
         <p className="PostActions">
-          {showCommentLink &&
-            <Link to={'/post/' + post.id}>{commentLabel(post.comment_count)}</Link>
-          }
+          {footer}
           {canDelete &&
-            <Button variant="link" size="sm" className="text-danger"
-              onClick={() => onDelete(post)}>
+            <Button variant="link" size="sm" className="text-danger" onClick={() => onDelete(item)}>
               Delete
             </Button>
           }

@@ -62,7 +62,7 @@ export default function EditUserPage() {
   };
 
   return (
-    <Body sidebar>
+    <Body>
       <h1>Edit Profile</h1>
       <Form onSubmit={onSubmit}>
         <InputField

@@ -1,34 +1,135 @@
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import App from './App';
-import { makeFakeApi, makePost, KUSH, HASH } from './test/fakeApi';
+import { makeFakeApi, makePost, makeComment, KUSH, HASH } from './test/fakeApi';
 
 function renderAt(path, api) {
   window.history.pushState({}, '', path);
   return render(<App api={api} />);
 }
 
-describe('App', () => {
-  test('logged-out visitors are sent to the login page', async () => {
-    renderAt('/explore', makeFakeApi());
+async function logIn(email) {
+  await userEvent.type(await screen.findByLabelText('Email address'), email);
+  await userEvent.type(screen.getByLabelText('Password'), 'password123');
+  await userEvent.click(screen.getByRole('button', { name: 'Login' }));
+}
+
+const POSTS = [makePost(1, KUSH, 'Rosin at 180F', 2)];
+const COMMENTS = [
+  makeComment(10, 1, HASH, 'What micron bags?'),
+  makeComment(11, 1, KUSH, '25u for full melt.'),
+];
+
+describe('reading (no login needed)', () => {
+  test('visitors can read posts but get no compose box or delete buttons', async () => {
+    renderAt('/', makeFakeApi({ posts: POSTS }));
+
+    const post = (await screen.findByText('Rosin at 180F')).closest('.Post');
+    expect(within(post).getByRole('link', { name: '2 comments' })).toHaveAttribute('href', '/post/1');
+    expect(within(post).queryByRole('button', { name: 'Delete' })).toBeNull();
+    expect(screen.queryByPlaceholderText(/Share a strain/)).toBeNull();
+  });
+
+  test('visitors can read comments and are invited to log in to reply', async () => {
+    renderAt('/post/1', makeFakeApi({ posts: POSTS, comments: COMMENTS }));
+
+    expect(await screen.findByText('What micron bags?')).toBeInTheDocument();
+    expect(screen.getByText('25u for full melt.')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Log in' })).toHaveAttribute('href', '/login');
+    expect(screen.queryByRole('button', { name: 'Comment' })).toBeNull();
+  });
+
+  test('logging in from a post returns to that post with the comment box', async () => {
+    renderAt('/post/1', makeFakeApi({ posts: POSTS, comments: COMMENTS }));
+
+    await userEvent.click(await screen.findByRole('link', { name: 'Log in' }));
+    await logIn('hashqueen@example.com');
+
+    expect(await screen.findByRole('button', { name: 'Comment' })).toBeInTheDocument();
+    expect(window.location.pathname).toBe('/post/1');
+  });
+
+  test('private pages send visitors to login', async () => {
+    renderAt('/edit', makeFakeApi());
 
     expect(await screen.findByRole('heading', { name: 'Login' })).toBeInTheDocument();
-    expect(window.location.pathname).toBe('/login');
+  });
+});
+
+describe('posting is superuser-only', () => {
+  test('regular members cannot post or delete posts', async () => {
+    renderAt('/', makeFakeApi({ loggedInAs: HASH, posts: POSTS }));
+
+    const post = (await screen.findByText('Rosin at 180F')).closest('.Post');
+    expect(within(post).queryByRole('button', { name: 'Delete' })).toBeNull();
+    expect(screen.queryByPlaceholderText(/Share a strain/)).toBeNull();
   });
 
-  test('logging in lands on the originally requested page', async () => {
-    const api = makeFakeApi({ posts: [makePost(1, HASH, 'Rosin at 180F')] });
-    renderAt('/explore', api);
+  test('the superuser can publish a post with photos and it appears first', async () => {
+    const api = makeFakeApi({ loggedInAs: KUSH, posts: POSTS });
+    renderAt('/', api);
 
-    await userEvent.type(await screen.findByLabelText('Email address'), 'kushking@example.com');
-    await userEvent.type(screen.getByLabelText('Password'), 'password123');
-    await userEvent.click(screen.getByRole('button', { name: 'Login' }));
+    await screen.findByText('Rosin at 180F');
+    await userEvent.type(screen.getByPlaceholderText(/Share a strain/), 'Harvest day');
+    const photo = new File(['x'], 'harvest.jpg', { type: 'image/jpeg' });
+    await userEvent.upload(screen.getByTestId('image-input'), photo);
+    await userEvent.click(screen.getByRole('button', { name: 'Post' }));
 
-    expect(await screen.findByText('Rosin at 180F')).toBeInTheDocument();
-    expect(window.location.pathname).toBe('/explore');
-    expect(api.listPosts).toHaveBeenCalledWith({ kind: 'explore', authorId: undefined });
+    const posts = await screen.findAllByText(/Harvest day|Rosin at 180F/);
+    expect(posts.map((el) => el.textContent)).toEqual(['Harvest day', 'Rosin at 180F']);
+    expect(api.createPost).toHaveBeenCalledWith({ body: 'Harvest day', files: [photo] });
+    const newPost = posts[0].closest('.Post');
+    expect(within(newPost).getByRole('img', { name: 'Photo 1' }))
+      .toHaveAttribute('src', 'https://media.test/u-kush/harvest.jpg');
+  });
+});
+
+describe('commenting', () => {
+  test('members can only delete their own comments', async () => {
+    renderAt('/post/1', makeFakeApi({ loggedInAs: HASH, posts: POSTS, comments: COMMENTS }));
+
+    await screen.findByRole('button', { name: 'Comment' });  // user loaded
+    const mine = screen.getByText('What micron bags?').closest('.Comment');
+    const theirs = screen.getByText('25u for full melt.').closest('.Comment');
+    expect(within(mine).getByRole('button', { name: 'Delete' })).toBeInTheDocument();
+    expect(within(theirs).queryByRole('button', { name: 'Delete' })).toBeNull();
   });
 
+  test('the superuser can delete any comment', async () => {
+    renderAt('/post/1', makeFakeApi({ loggedInAs: KUSH, posts: POSTS, comments: COMMENTS }));
+
+    await screen.findByRole('button', { name: 'Comment' });  // user loaded
+    const theirs = screen.getByText('What micron bags?').closest('.Comment');
+    expect(within(theirs).getByRole('button', { name: 'Delete' })).toBeInTheDocument();
+  });
+
+  test('a comment with a YouTube link shows the link and an embedded player', async () => {
+    const api = makeFakeApi({ loggedInAs: HASH, posts: [makePost(1, KUSH, 'Rosin at 180F', 0)] });
+    renderAt('/post/1', api);
+
+    await userEvent.type(await screen.findByPlaceholderText(/Add to the conversation/),
+      'Watch this https://youtu.be/dQw4w9WgXcQ');
+    await userEvent.click(screen.getByRole('button', { name: 'Comment' }));
+
+    const comment = (await screen.findByRole('link', { name: 'https://youtu.be/dQw4w9WgXcQ' })).closest('.Comment');
+    expect(within(comment).getByTitle('youtube video'))
+      .toHaveAttribute('src', 'https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ');
+    expect(screen.getByText('1 comment')).toBeInTheDocument();
+  });
+
+  test('non-image attachments are rejected before upload', async () => {
+    const api = makeFakeApi({ loggedInAs: HASH, posts: POSTS, comments: [] });
+    renderAt('/post/1', api);
+
+    const pdf = new File(['x'], 'menu.pdf', { type: 'application/pdf' });
+    await userEvent.upload(await screen.findByTestId('image-input'), pdf, { applyAccept: false });
+
+    expect(await screen.findByText(/menu.pdf: only JPEG, PNG, WebP and GIF/)).toBeInTheDocument();
+    expect(api.createComment).not.toHaveBeenCalled();
+  });
+});
+
+describe('accounts', () => {
   test('wrong password shows an error and stays on login', async () => {
     renderAt('/login', makeFakeApi());
 
@@ -38,33 +139,6 @@ describe('App', () => {
 
     expect(await screen.findByText('Invalid email or password.')).toBeInTheDocument();
     expect(window.location.pathname).toBe('/login');
-  });
-
-  test('feed only offers Delete on the current user\'s own posts', async () => {
-    const api = makeFakeApi({
-      loggedInAs: KUSH,
-      posts: [makePost(2, KUSH, 'My Mendo Purps', 0), makePost(1, HASH, 'Her hash tips', 3)],
-    });
-    renderAt('/', api);
-
-    const mine = (await screen.findByText('My Mendo Purps')).closest('.Post');
-    const theirs = screen.getByText('Her hash tips').closest('.Post');
-    expect(within(mine).getByRole('button', { name: 'Delete' })).toBeInTheDocument();
-    expect(within(theirs).queryByRole('button', { name: 'Delete' })).toBeNull();
-    expect(within(theirs).getByRole('link', { name: '3 comments' })).toHaveAttribute('href', '/post/1');
-  });
-
-  test('a new post appears at the top of the feed', async () => {
-    const api = makeFakeApi({ loggedInAs: KUSH, posts: [makePost(1, HASH, 'Older post')] });
-    renderAt('/', api);
-
-    await screen.findByText('Older post');
-    await userEvent.type(screen.getByPlaceholderText(/Share a strain/), 'Fresh drop from Humboldt');
-    await userEvent.click(screen.getByRole('button', { name: 'Post' }));
-
-    const bodies = (await screen.findAllByText(/Fresh drop|Older post/)).map((el) => el.textContent);
-    expect(bodies).toEqual(['Fresh drop from Humboldt', 'Older post']);
-    expect(api.createPost).toHaveBeenCalledWith('Fresh drop from Humboldt');
   });
 
   test('registration rejects a taken username without creating an account', async () => {
@@ -92,19 +166,19 @@ describe('App', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Register' }));
 
     expect(await screen.findByText(/Check your email to confirm/)).toBeInTheDocument();
-    expect(window.location.pathname).toBe('/login');
     expect(api.auth.signUp).toHaveBeenCalledWith(expect.objectContaining({
       email: 'sam@example.com',
       options: expect.objectContaining({ data: { username: 'sativa_sam' } }),
     }));
   });
 
-  test('logout returns to the login page', async () => {
-    renderAt('/', makeFakeApi({ loggedInAs: KUSH }));
+  test('logout keeps the visitor on the readable site', async () => {
+    renderAt('/', makeFakeApi({ loggedInAs: HASH, posts: POSTS }));
 
-    await userEvent.click(await screen.findByRole('button', { name: 'kushking' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'hashqueen' }));
     await userEvent.click(await screen.findByText('Logout'));
 
-    expect(await screen.findByRole('heading', { name: 'Login' })).toBeInTheDocument();
+    expect(await screen.findByRole('link', { name: 'Login' })).toBeInTheDocument();
+    expect(screen.getByText('Rosin at 180F')).toBeInTheDocument();
   });
 });

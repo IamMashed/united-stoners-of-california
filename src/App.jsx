@@ -6,8 +6,7 @@ import UserProvider from './contexts/UserProvider';
 import Header from './components/Header';
 import PublicRoute from './components/PublicRoute';
 import PrivateRoute from './components/PrivateRoute';
-import FeedPage from './pages/FeedPage';
-import ExplorePage from './pages/ExplorePage';
+import HomePage from './pages/HomePage';
 import UserPage from './pages/UserPage';
 import PostPage from './pages/PostPage';
 import EditUserPage from './pages/EditUserPage';
@@ -26,30 +25,23 @@ export default function App({ supabase, api }) {
             <UserProvider>
               <Header />
               <Routes>
-                <Route path="/login" element={
-                  <PublicRoute><LoginPage /></PublicRoute>
-                } />
-                <Route path="/register" element={
-                  <PublicRoute><RegistrationPage /></PublicRoute>
-                } />
-                <Route path="/reset-request" element={
-                  <PublicRoute><ResetRequestPage /></PublicRoute>
-                } />
+                {/* Anyone can read */}
+                <Route path="/" element={<HomePage />} />
+                <Route path="/post/:id" element={<PostPage />} />
+                <Route path="/user/:username" element={<UserPage />} />
+
+                {/* Logged-out only */}
+                <Route path="/login" element={<PublicRoute><LoginPage /></PublicRoute>} />
+                <Route path="/register" element={<PublicRoute><RegistrationPage /></PublicRoute>} />
+                <Route path="/reset-request" element={<PublicRoute><ResetRequestPage /></PublicRoute>} />
                 {/* Neither public nor private: the reset link logs the user in. */}
                 <Route path="/reset" element={<ResetPage />} />
-                <Route path="*" element={
-                  <PrivateRoute>
-                    <Routes>
-                      <Route path="/" element={<FeedPage />} />
-                      <Route path="/explore" element={<ExplorePage />} />
-                      <Route path="/user/:username" element={<UserPage />} />
-                      <Route path="/post/:id" element={<PostPage />} />
-                      <Route path="/edit" element={<EditUserPage />} />
-                      <Route path="/password" element={<ChangePasswordPage />} />
-                      <Route path="*" element={<Navigate to="/" />} />
-                    </Routes>
-                  </PrivateRoute>
-                } />
+
+                {/* Logged-in only */}
+                <Route path="/edit" element={<PrivateRoute><EditUserPage /></PrivateRoute>} />
+                <Route path="/password" element={<PrivateRoute><ChangePasswordPage /></PrivateRoute>} />
+
+                <Route path="*" element={<Navigate to="/" />} />
               </Routes>
             </UserProvider>
           </ApiProvider>

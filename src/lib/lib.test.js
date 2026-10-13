@@ -27,7 +27,7 @@ describe('fieldErrorsFromDb', () => {
 
   test('maps an over-long comment to the body field', () => {
     const error = { message: 'new row for relation "comments" violates check constraint "comments_body_length"' };
-    expect(fieldErrorsFromDb(error)).toEqual({ body: 'Comments must be between 1 and 1000 characters.' });
+    expect(fieldErrorsFromDb(error)).toEqual({ body: 'Comments need text or a photo, and at most 2000 characters.' });
   });
 
   test('returns null for errors it does not recognise', () => {

@@ -1,6 +1,7 @@
 // End-to-end smoke test of SupabaseApiClient against the dev Supabase project.
-// Requires seed data (`npm run db:seed`). Run: npm run test:smoke
+// Requires seed data (`npm run db:seed`, kushking = superuser). Run: npm run test:smoke
 // Signup is not exercised here: on hosted Supabase it sends real emails.
+// Everything the test creates (posts, comments, images) is deleted again.
 import { readFileSync } from 'node:fs';
 import { createClient } from '@supabase/supabase-js';
 import { fetch as undiciFetch, EnvHttpProxyAgent } from 'undici';
@@ -10,12 +11,10 @@ const env = Object.fromEntries(
   readFileSync(new URL('../.env.development', import.meta.url), 'utf8')
     .split('\n').filter((l) => l.includes('=')).map((l) => l.split(/=(.*)/s).slice(0, 2))
 );
-const url = env.VITE_SUPABASE_URL;
-const key = env.VITE_SUPABASE_ANON_KEY;
 // Node's built-in fetch ignores HTTP(S)_PROXY / NO_PROXY; this agent honours them.
 const dispatcher = new EnvHttpProxyAgent();
 const proxiedFetch = (input, init) => undiciFetch(input, { ...init, dispatcher });
-const makeClient = () => createClient(url, key, {
+const makeClient = () => createClient(env.VITE_SUPABASE_URL, env.VITE_SUPABASE_ANON_KEY, {
   auth: { persistSession: false },
   global: { fetch: proxiedFetch },
 });
@@ -26,42 +25,71 @@ function check(condition, message) {
   if (!condition) failures++;
 }
 
+async function loginAs(email) {
+  const client = makeClient();
+  const { data, error } = await client.auth.signInWithPassword({ email, password: 'password123' });
+  if (error) throw new Error(`login ${email}: ${error.message}`);
+  return { api: new SupabaseApiClient(client), id: data.user.id };
+}
+
+// 1x1 transparent PNG
+const PNG = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==',
+  'base64'
+);
+// Raw bytes + type instead of a File: storage-js wraps File/Blob bodies in Node's
+// global FormData, which the proxy-aware undici fetch cannot serialize. Browsers
+// send real File objects and are unaffected.
+const pngFile = (name) => Object.assign(new Uint8Array(PNG), { name, type: 'image/png' });
+
+// ---- visitors ----------------------------------------------------------------
 const anon = new SupabaseApiClient(makeClient());
-const anonPosts = await anon.listPosts({ kind: 'explore' });
-check(anonPosts.error, `anonymous visitors cannot read posts (${anonPosts.error?.code})`);
-check((await anon.usernameAvailable('kushking')).data === false, 'username_available is false for a taken name');
+const publicPosts = await anon.listPosts();
+check(!publicPosts.error && publicPosts.data.posts.length > 0, 'visitors can read posts');
+const firstPost = publicPosts.data.posts[0];
+check(firstPost.author.is_admin === true, 'posts are written by the superuser');
+const publicComments = await anon.listComments(firstPost.id);
+check(!publicComments.error, 'visitors can read comments');
+const anonComment = await anon.createComment(firstPost.id, { body: 'drive-by', files: [] });
+check(anonComment.error, `visitors cannot comment (${anonComment.error?.code})`);
 
-const sb = makeClient();
-const api = new SupabaseApiClient(sb);
-const { data: login, error: loginError } = await sb.auth.signInWithPassword({
-  email: 'kushking@example.com', password: 'password123',
+// ---- regular member -------------------------------------------------------------
+const member = await loginAs('hashqueen@example.com');
+const memberPost = await member.api.createPost({ body: 'sneaky post', files: [] });
+check(memberPost.error?.code === '42501', `members cannot create posts (${memberPost.error?.code})`);
+
+const comment = await member.api.createComment(firstPost.id, {
+  body: 'Bud shot + video https://youtu.be/dQw4w9WgXcQ', files: [pngFile('bud.png')],
 });
-check(!loginError, `seed user can log in ${loginError?.message ?? ''}`);
-const me = login.user.id;
+check(!comment.error && comment.data.image_paths.length === 1
+  && comment.data.image_paths[0].startsWith(`${member.id}/`), `members can comment with a photo ${comment.error?.message ?? ''}`);
+const imageUrl = member.api.mediaUrl(comment.data.image_paths[0]);
+const imageResponse = await proxiedFetch(imageUrl);
+check(imageResponse.status === 200 && imageResponse.headers.get('content-type') === 'image/png',
+  `uploaded photo is publicly viewable (${imageResponse.status})`);
 
-const created = await api.createPost('  smoke test post  ');
-check(!created.error && created.data.body === 'smoke test post'
-  && created.data.author.username === 'kushking', `create post ${created.error?.message ?? ''}`);
+const bucket = member.api.supabase.storage.from('media');
+const foreignUpload = await bucket.upload(`11111111-1111-1111-1111-111111111111/hack.png`, PNG, { contentType: 'image/png' });
+check(foreignUpload.error, 'members cannot upload into someone else\'s folder');
+const badType = await bucket.upload(`${member.id}/notes.txt`, Buffer.from('hi'), { contentType: 'text/plain' });
+check(badType.error, 'the bucket rejects non-image files');
 
-const feed = await api.listPosts({ kind: 'feed' });
-check(!feed.error && feed.data.posts[0].id === created.data.id, 'feed shows newest own post first');
-const psa = feed.data?.posts.find((p) => p.body.startsWith('PSA'));
-check(psa?.comment_count === 2 && psa.author.username === 'hashqueen',
-  'feed includes followed user posts with author + comment count');
+// ---- superuser ------------------------------------------------------------------
+const admin = await loginAs('kushking@example.com');
+const post = await admin.api.createPost({ body: 'smoke test post', files: [pngFile('cover.png')] });
+check(!post.error && post.data.image_paths.length === 1, `the superuser can post with a photo ${post.error?.message ?? ''}`);
 
-const comment = await api.createComment(created.data.id, 'smoke comment');
-check(!comment.error && comment.data.author.username === 'kushking', `create comment ${comment.error?.message ?? ''}`);
-check((await api.getPost(created.data.id)).data?.comment_count === 1, 'post comment_count updates');
+const adminDelete = await admin.api.deleteComment(comment.data);
+check(!adminDelete.error, 'the superuser can delete a member\'s comment');
+const afterDelete = await anon.listComments(firstPost.id);
+check(!afterDelete.data.some((c) => c.id === comment.data.id), 'deleted comment is gone');
+// Checked in storage itself: the public URL may stay CDN-cached for up to an hour.
+const stillStored = await admin.api.supabase.storage.from('media').exists(comment.data.image_paths[0]);
+check(stillStored.data === false, 'deleted comment\'s photo is removed from storage');
 
-const queen = await api.getProfileByUsername('HASHQUEEN');
-check(queen.data?.username === 'hashqueen', 'profile lookup is case-insensitive');
-check((await api.isFollowing(me, queen.data.id)).data === true, 'isFollowing reflects seed follow');
-
-const dupe = await api.updateProfile(me, { username: 'HashQueen', about_me: '' });
-check(dupe.error?.message?.includes('profiles_username_lower_key'), 'duplicate username is rejected');
-
-check(!(await api.deletePost(created.data.id)).error, 'author can delete own post');
-check((await api.getPost(created.data.id)).data === null, 'deleted post is gone');
+check(!(await admin.api.deletePost(post.data)).error, 'the superuser can delete posts');
+const coverStored = await admin.api.supabase.storage.from('media').exists(post.data.image_paths[0]);
+check(coverStored.data === false, 'deleted post\'s photo is removed from storage');
 
 console.log(failures ? `\n${failures} check(s) failed` : '\nAll smoke checks passed');
 process.exit(failures ? 1 : 0);
