@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import Form from 'react-bootstrap/Form';
 import Button from 'react-bootstrap/Button';
 import Body from '../components/Body';
@@ -94,8 +94,7 @@ export default function RegistrationPage() {
   };
 
   return (
-    <Body>
-      <h1>Register</h1>
+    <Body form title="Register">
       <Form onSubmit={onSubmit}>
         <InputField
           name="username" label="Username" autoComplete="username"
@@ -112,6 +111,9 @@ export default function RegistrationPage() {
         <Button variant="success" type="submit" disabled={busy}>Register</Button>
       </Form>
       <OAuthButtons />
+      <div className="FormCard-links">
+        <span>Already a member? <Link to="/login">Log in</Link></span>
+      </div>
     </Body>
   );
 }

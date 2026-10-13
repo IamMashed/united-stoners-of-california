@@ -38,8 +38,7 @@ export default function ResetRequestPage() {
   };
 
   return (
-    <Body>
-      <h1>Reset Your Password</h1>
+    <Body form title="Reset Your Password">
       <Form onSubmit={onSubmit}>
         <InputField
           name="email" label="Email Address" type="email" autoComplete="email"

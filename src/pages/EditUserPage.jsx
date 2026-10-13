@@ -62,8 +62,7 @@ export default function EditUserPage() {
   };
 
   return (
-    <Body>
-      <h1>Edit Profile</h1>
+    <Body form title="Edit Profile">
       <Form onSubmit={onSubmit}>
         <InputField
           name="username" label="Username" autoComplete="username"

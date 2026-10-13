@@ -9,3 +9,4 @@ supabase/.env
 .idea
 .vscode
 *.log
+screens

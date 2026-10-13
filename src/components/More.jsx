@@ -4,8 +4,8 @@ export default function More({ more, loadNextPage }) {
   return (
     <div className="More">
       {more &&
-        <Button variant="outline-success" onClick={loadNextPage}>
-          More &raquo;
+        <Button variant="outline-success" className="w-100" onClick={loadNextPage}>
+          Load more
         </Button>
       }
     </div>

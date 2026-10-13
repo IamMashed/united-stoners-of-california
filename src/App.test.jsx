@@ -56,6 +56,25 @@ describe('reading (no login needed)', () => {
   });
 });
 
+describe('long posts', () => {
+  const LONG = makePost(5, KUSH, Array.from({ length: 12 }, (_, i) => `Line ${i + 1}`).join('\n'));
+
+  test('are clamped on the home page with a Read more link to the full post', async () => {
+    renderAt('/', makeFakeApi({ posts: [LONG, ...POSTS] }));
+
+    const link = await screen.findByRole('link', { name: 'Read more' });
+    expect(link).toHaveAttribute('href', '/post/5');
+    expect(screen.getAllByRole('link', { name: 'Read more' })).toHaveLength(1);  // short post: none
+  });
+
+  test('are shown in full on their own page', async () => {
+    renderAt('/post/5', makeFakeApi({ posts: [LONG] }));
+
+    expect(await screen.findByText(/Line 12/)).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Read more' })).toBeNull();
+  });
+});
+
 describe('posting is superuser-only', () => {
   test('regular members cannot post or delete posts', async () => {
     renderAt('/', makeFakeApi({ loggedInAs: HASH, posts: POSTS }));
@@ -107,11 +126,11 @@ describe('commenting', () => {
     const api = makeFakeApi({ loggedInAs: HASH, posts: [makePost(1, KUSH, 'Rosin at 180F', 0)] });
     renderAt('/post/1', api);
 
-    await userEvent.type(await screen.findByPlaceholderText(/Add to the conversation/),
+    await userEvent.type(await screen.findByPlaceholderText(/Add a comment/),
       'Watch this https://youtu.be/dQw4w9WgXcQ');
     await userEvent.click(screen.getByRole('button', { name: 'Comment' }));
 
-    const comment = (await screen.findByRole('link', { name: 'https://youtu.be/dQw4w9WgXcQ' })).closest('.Comment');
+    const comment = (await screen.findByRole('link', { name: 'youtu.be/dQw4w9WgXcQ' })).closest('.Comment');
     expect(within(comment).getByTitle('youtube video'))
       .toHaveAttribute('src', 'https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ');
     expect(screen.getByText('1 comment')).toBeInTheDocument();

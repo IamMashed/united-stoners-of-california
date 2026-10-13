@@ -30,7 +30,7 @@ function getTimeAgo(date) {
   return [bestTime, bestUnit, bestInterval];
 }
 
-export default function TimeAgo({ isoDate }) {
+export default function TimeAgo({ isoDate, className }) {
   const date = new Date(Date.parse(isoDate));
   const [time, unit, interval] = getTimeAgo(date);
   const [, setUpdate] = useState(0);
@@ -44,6 +44,6 @@ export default function TimeAgo({ isoDate }) {
   }, [interval]);
 
   return (
-    <span title={date.toString()}>{rtf.format(time, unit)}</span>
+    <time dateTime={isoDate} title={date.toLocaleString()} className={className}>{rtf.format(time, unit)}</time>
   );
 }

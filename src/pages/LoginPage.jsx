@@ -50,8 +50,7 @@ export default function LoginPage() {
   };
 
   return (
-    <Body>
-      <h1>Login</h1>
+    <Body form title="Login">
       <Form onSubmit={onSubmit}>
         <InputField
           name="email" label="Email address" type="email" autoComplete="email"
@@ -62,9 +61,10 @@ export default function LoginPage() {
         <Button variant="success" type="submit">Login</Button>
       </Form>
       <OAuthButtons />
-      <hr />
-      <p>Forgot your password? You can <Link to="/reset-request">reset it</Link>.</p>
-      <p>Don&apos;t have an account? <Link to="/register">Register here</Link>!</p>
+      <div className="FormCard-links">
+        <Link to="/reset-request">Forgot your password?</Link>
+        <span>New here? <Link to="/register">Create an account</Link></span>
+      </div>
     </Body>
   );
 }

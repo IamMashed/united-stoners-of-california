@@ -70,18 +70,21 @@ function PostThread({ postId }) {
   return (
     <Body>
       {post === undefined ?
-        <Spinner animation="border" />
+        <div className="Loading"><Spinner animation="border" variant="success" /></div>
       : post === null ?
-        <p>Post not found.</p>
+        <p className="Empty">Post not found.</p>
       :
         <>
-          <Post item={post} canDelete={isAdmin} onDelete={deletePost} />
-          <h5 className="mt-3">{commentLabel(post.comment_count)}</h5>
-          <div className="Comments">
+          <Link to="/" className="BackLink">&larr; All posts</Link>
+          <Post item={post} className="Card Post Post-full" canDelete={isAdmin} onDelete={deletePost} />
+          <section className="Card Comments" aria-label="Comments">
+            <h2 className="Comments-title">{commentLabel(post.comment_count)}</h2>
             {comments === undefined ?
-              <Spinner animation="border" size="sm" />
+              <div className="Loading"><Spinner animation="border" size="sm" variant="success" /></div>
             : comments === null ?
-              <p>Could not retrieve comments.</p>
+              <p className="Empty">Could not retrieve comments.</p>
+            : comments.length === 0 ?
+              <p className="Empty">No comments yet. Start the conversation.</p>
             :
               comments.map((comment) =>
                 <Post key={comment.id} item={comment} avatarSize={32} className="Comment"
@@ -89,12 +92,11 @@ function PostThread({ postId }) {
                   onDelete={deleteComment} />
               )
             }
-          </div>
+          </section>
           {user ?
-            <Composer placeholder="Add to the conversation... (links and YouTube/TikTok/Instagram videos welcome)"
-              submitLabel="Comment" onSubmit={addComment} autoFocus={false} />
+            <Composer placeholder="Add a comment…" submitLabel="Comment" onSubmit={addComment} />
           : user === null &&
-            <p className="JoinPrompt">
+            <p className="Card JoinPrompt">
               <Link to="/login" state={{ next: location.pathname }}>Log in</Link> or{' '}
               <Link to="/register">join</Link> to leave a comment.
             </p>

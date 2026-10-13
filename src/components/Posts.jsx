@@ -5,7 +5,7 @@ import { useApi } from '../contexts/ApiProvider';
 import { useUser } from '../contexts/UserProvider';
 import { useFlash } from '../contexts/FlashProvider';
 import Composer from './Composer';
-import Post, { commentLabel } from './Post';
+import Post, { commentLabel, CommentIcon } from './Post';
 import More from './More';
 
 // The list of posts. Only the superuser sees the compose box and Delete buttons.
@@ -56,19 +56,24 @@ export default function Posts({ authorId }) {
   return (
     <>
       {isAdmin && !authorId &&
-        <Composer placeholder="Share a strain, a grow tip, a dispensary find..."
+        <Composer placeholder="Share a strain, a grow tip, a dispensary find…"
           submitLabel="Post" onSubmit={createPost} />
       }
       {posts === undefined ?
-        <Spinner animation="border" />
+        <div className="Loading"><Spinner animation="border" variant="success" /></div>
       : posts === null ?
-        <p>Could not retrieve posts.</p>
+        <p className="Empty">Could not retrieve posts.</p>
       : posts.length === 0 ?
-        <p>There are no posts yet.</p>
+        <p className="Empty">There are no posts yet.</p>
       :
         posts.map((post) =>
-          <Post key={post.id} item={post} canDelete={isAdmin} onDelete={deletePost}
-            footer={<Link to={'/post/' + post.id}>{commentLabel(post.comment_count)}</Link>} />
+          <Post key={post.id} item={post} className="Card Post" canDelete={isAdmin} onDelete={deletePost}
+            readMoreTo={'/post/' + post.id}
+            footer={
+              <Link to={'/post/' + post.id} className="Item-action">
+                <CommentIcon /> <span>{commentLabel(post.comment_count)}</span>
+              </Link>
+            } />
         )
       }
       <More more={more} loadNextPage={loadNextPage} />

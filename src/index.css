@@ -1,153 +1,603 @@
+/* Mobile-first styles. Base rules target phones (360–430px wide); the
+   min-width media queries at the bottom progressively enhance larger screens. */
+
 :root {
   --usoc-green: #2f6b3a;
-  --usoc-green-dark: #1f4a27;
+  --usoc-green-dark: #234f2b;
+  --usoc-green-tint: #e8f2e9;
   --usoc-gold: #e0b44c;
-  --usoc-link: #2f6b3a;
+  --usoc-bg: #f3f5f1;
+  --usoc-card: #ffffff;
+  --usoc-border: #e3e8e1;
+  --usoc-text: #1d2420;
+  --usoc-muted: #6b756d;
+  --usoc-radius: 14px;
+  --usoc-gutter: 12px;
+  --usoc-tap: 44px;
+  --usoc-header-h: 56px;
+
+  --bs-body-bg: var(--usoc-bg);
+  --bs-body-color: var(--usoc-text);
+  --bs-link-color: var(--usoc-green);
+  --bs-link-color-rgb: 47, 107, 58;
+  --bs-link-hover-color: var(--usoc-green-dark);
+  --bs-link-hover-color-rgb: 35, 79, 43;
+  --bs-success: var(--usoc-green);
+  --bs-success-rgb: 47, 107, 58;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  background: var(--usoc-bg);
+  -webkit-tap-highlight-color: transparent;
+  overflow-x: hidden;
 }
 
 .App {
   padding: 0;
+  min-height: 100vh;
+  min-height: 100dvh;
 }
+
+a {
+  text-decoration: none;
+}
+
+/* ---- buttons: brand colours, 44px touch targets ------------------------ */
+
+.btn {
+  min-height: var(--usoc-tap);
+  border-radius: 10px;
+  font-weight: 500;
+}
+
+.btn-sm {
+  min-height: 36px;
+}
+
+.btn-success {
+  --bs-btn-bg: var(--usoc-green);
+  --bs-btn-border-color: var(--usoc-green);
+  --bs-btn-hover-bg: var(--usoc-green-dark);
+  --bs-btn-hover-border-color: var(--usoc-green-dark);
+  --bs-btn-active-bg: var(--usoc-green-dark);
+  --bs-btn-active-border-color: var(--usoc-green-dark);
+  --bs-btn-disabled-bg: var(--usoc-green);
+  --bs-btn-disabled-border-color: var(--usoc-green);
+}
+
+.btn-outline-success {
+  --bs-btn-color: var(--usoc-green);
+  --bs-btn-border-color: var(--usoc-green);
+  --bs-btn-hover-bg: var(--usoc-green);
+  --bs-btn-hover-border-color: var(--usoc-green);
+  --bs-btn-active-bg: var(--usoc-green-dark);
+  --bs-btn-active-border-color: var(--usoc-green-dark);
+}
+
+.form-control {
+  background-color: #fff;
+  min-height: 48px;
+  font-size: 16px; /* >= 16px stops iOS Safari zooming into inputs */
+  border-radius: 10px;
+}
+
+.form-control:focus {
+  background-color: #fff;
+  border-color: var(--usoc-green);
+  box-shadow: 0 0 0 0.2rem rgba(47, 107, 58, 0.2);
+}
+
+/* ---- header ------------------------------------------------------------- */
 
 .Header {
   background-color: var(--usoc-green);
   border-bottom: 3px solid var(--usoc-gold);
+  padding: env(safe-area-inset-top) 0 0;
+  min-height: var(--usoc-header-h);
 }
 
-.Header .navbar-brand {
+.Header.navbar {
+  flex-direction: column;
+  align-items: stretch;
+  flex-wrap: nowrap;
+}
+
+.Header-slogan {
+  margin: 0;
+  padding: 4px max(var(--usoc-gutter), env(safe-area-inset-right)) 5px max(var(--usoc-gutter), env(safe-area-inset-left));
+  background: var(--usoc-green-dark);
+  color: var(--usoc-gold);
+  font-size: 0.8rem;
   font-weight: 600;
-  letter-spacing: 0.02em;
+  font-style: italic;
+  letter-spacing: 0.04em;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.Header-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 6px max(var(--usoc-gutter), env(safe-area-inset-right)) 6px max(var(--usoc-gutter), env(safe-area-inset-left));
+}
+
+.Brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+}
+
+.Brand-leaf {
+  font-size: 1.6rem;
+  line-height: 1;
+}
+
+.Brand-text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.05;
+  min-width: 0;
+}
+
+.Brand-name {
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+}
+
+.Brand-sub {
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: var(--usoc-gold);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.Header-actions {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.Header-btn {
+  padding-left: 14px;
+  padding-right: 14px;
+  display: inline-flex;
+  align-items: center;
+}
+
+.Header .btn-warning {
+  --bs-btn-bg: var(--usoc-gold);
+  --bs-btn-border-color: var(--usoc-gold);
+  --bs-btn-color: #2a2207;
+  --bs-btn-hover-bg: #d1a33a;
+  --bs-btn-hover-border-color: #d1a33a;
+}
+
+.Header .dropdown-toggle {
+  display: flex;
+  align-items: center;
+  min-height: var(--usoc-tap);
+  padding: 0 !important;
 }
 
 .Header .dropdown-toggle::after {
   color: #fff;
+  margin-left: 6px;
 }
 
-.dropdown-item, .dropdown-item.active {
-  color: #444;
+.Header .dropdown-menu {
+  /* the navbar uses the dark theme; the menu itself stays light */
+  --bs-dropdown-bg: #fff;
+  --bs-dropdown-color: var(--usoc-text);
+  --bs-dropdown-link-color: var(--usoc-text);
+  --bs-dropdown-link-hover-bg: var(--usoc-green-tint);
+  --bs-dropdown-link-hover-color: var(--usoc-text);
+  --bs-dropdown-link-active-bg: var(--usoc-green-tint);
+  --bs-dropdown-link-active-color: var(--usoc-text);
+  --bs-dropdown-divider-bg: var(--usoc-border);
+  position: absolute;
+  right: 0;
+  left: auto;
+  min-width: 200px;
+  border-radius: 12px;
+  border-color: var(--usoc-border);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12);
+  padding: 6px;
 }
 
-.dropdown-item.active {
-  background-color: #d7ecd9;
+.Header .dropdown-item {
+  min-height: var(--usoc-tap);
+  display: flex;
+  align-items: center;
+  border-radius: 8px;
+  color: var(--usoc-text);
 }
 
-.Body {
-  max-width: 860px;
+/* ---- page shell --------------------------------------------------------- */
+
+.Page {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: var(--usoc-gutter) max(var(--usoc-gutter), env(safe-area-inset-right))
+    calc(32px + env(safe-area-inset-bottom)) max(var(--usoc-gutter), env(safe-area-inset-left));
 }
 
-.Content {
-  margin-top: 10px;
+.Page-form {
+  max-width: 460px;
 }
 
-.Post, .Comment {
-  align-items: start;
-  padding-top: 8px;
-  border-bottom: 1px solid #eee;
+.Card {
+  background: var(--usoc-card);
+  border: 1px solid var(--usoc-border);
+  border-radius: var(--usoc-radius);
+  padding: 14px;
+  margin-bottom: var(--usoc-gutter);
 }
 
-.Post:hover {
-  background-color: #f8faf8;
+.Loading {
+  display: flex;
+  justify-content: center;
+  padding: 32px 0;
 }
 
-.Post a, .Comment a, .Post a:visited, .Comment a:visited {
-  color: var(--usoc-link);
-  text-decoration: none;
+.Empty {
+  text-align: center;
+  color: var(--usoc-muted);
+  padding: 24px 8px;
+  margin: 0;
 }
 
-.PostBody, .AboutMe {
+.SectionTitle {
+  font-size: 1.05rem;
+  font-weight: 700;
+  margin: 20px 4px 10px;
+}
+
+.BackLink {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--usoc-tap);
+  padding: 0 4px;
+  margin-bottom: 2px;
+  font-weight: 500;
+}
+
+.alert {
+  border-radius: 12px;
+}
+
+/* ---- posts & comments --------------------------------------------------- */
+
+.Item-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.Item-meta {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+  line-height: 1.25;
+}
+
+.Item-byline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.Item-author {
+  font-weight: 600;
+  color: var(--usoc-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+.Item-time {
+  font-size: 0.85rem;
+  color: var(--usoc-muted);
+  white-space: nowrap;
+}
+
+.FounderBadge {
+  display: inline-block;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #2a2207;
+  background: var(--usoc-gold);
+  border-radius: 999px;
+  padding: 2px 8px;
+  line-height: 1.4;
+  vertical-align: middle;
+}
+
+.Item-foot {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 4px;
+  border-top: 1px solid var(--usoc-border);
+  padding-top: 4px;
+}
+
+.Item-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: var(--usoc-tap);
+  font-weight: 500;
+  color: var(--usoc-muted);
+}
+
+.Item-action:hover {
+  color: var(--usoc-green);
+}
+
+.IconButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--usoc-tap);
+  height: var(--usoc-tap);
+  margin: -8px -8px -8px 0;
+  flex-shrink: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--usoc-muted);
+}
+
+.IconButton:hover,
+.IconButton:focus-visible {
+  background: #f1f1f1;
+}
+
+.IconButton-danger:hover,
+.IconButton-danger:focus-visible {
+  color: #c62828;
+  background: #fdecea;
+}
+
+.PostBody,
+.Profile-about {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
 
-.PostActions {
-  display: flex;
-  gap: 12px;
-  align-items: center;
-  font-size: 0.9rem;
+.PostBody {
+  font-size: 1rem;
+  line-height: 1.55;
+  margin-bottom: 10px;
 }
 
-.PostActions .btn-link {
-  padding: 0;
+.PostBody-clamped {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 8;
+  line-clamp: 8;
+  overflow: hidden;
+  margin-bottom: 4px;
+}
+
+.ReadMore {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--usoc-tap);
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+
+.PostBody a {
+  word-break: break-all;
 }
 
 .Comments {
-  margin-left: 64px;
+  padding-top: 6px;
+  padding-bottom: 6px;
+}
+
+.Comments-title {
+  font-size: 1rem;
+  font-weight: 700;
+  margin: 8px 0 4px;
+}
+
+.Comment {
+  padding: 12px 0;
+  border-bottom: 1px solid var(--usoc-border);
+}
+
+.Comment:last-child {
+  border-bottom: 0;
+}
+
+.Comment .Item-head {
+  margin-bottom: 6px;
+}
+
+.Comment .Content-body {
+  padding-left: 42px; /* aligns text with the author name next to the 32px avatar */
+}
+
+.Comment .Item-head {
+  align-items: flex-start;
+}
+
+.Comment .Item-foot {
+  border-top: 0;
+  padding: 0 0 0 42px;
+  margin: 0;
+}
+
+.Comment .PostBody {
+  margin-bottom: 6px;
 }
 
 .Avatar {
   object-fit: cover;
   flex-shrink: 0;
+  background: var(--usoc-green-tint);
 }
 
-.More {
-  margin-top: 10px;
-  margin-bottom: 10px;
-  text-align: right;
-}
-
-.InputField {
-  margin-top: 15px;
-  margin-bottom: 15px;
-}
-
-.Write {
-  align-items: start;
-  margin-bottom: 10px;
-  padding: 30px 0px 30px 0px;
-  border-bottom: 1px solid #eee;
-}
-
-.Write form {
-  width: 100%;
-}
-
-.Write .InputField {
-  margin-top: 0;
-  margin-bottom: 8px;
-}
-
-.OAuthButtons {
-  max-width: 320px;
-}
-
-.min-w-0 {
-  min-width: 0;
-}
+/* ---- media -------------------------------------------------------------- */
 
 .ImageGallery {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-  gap: 8px;
-  margin-bottom: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px;
+  margin-bottom: 10px;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.ImageGallery a {
+  display: block;
 }
 
 .ImageGallery img {
   width: 100%;
+  height: 100%;
   aspect-ratio: 1;
   object-fit: cover;
-  border-radius: 6px;
+  display: block;
+}
+
+/* A single photo is shown whole instead of square-cropped. */
+.ImageGallery:has(> a:only-child) {
+  grid-template-columns: 1fr;
+}
+
+.ImageGallery > a:only-child img {
+  aspect-ratio: auto;
+  max-height: 70vh;
+  object-fit: contain;
+  background: #0d0f0e;
+}
+
+/* Three photos: the first spans the full width. */
+.ImageGallery:has(> a:nth-child(3):last-child) > a:first-child {
+  grid-column: span 2;
+}
+
+.ImageGallery:has(> a:nth-child(3):last-child) > a:first-child img {
+  aspect-ratio: 2;
 }
 
 .VideoEmbed {
-  max-width: 640px;
-  margin-bottom: 12px;
+  width: 100%;
+  margin-bottom: 10px;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #0d0f0e;
 }
 
 .VideoEmbed iframe {
   border: 0;
-  border-radius: 6px;
+  display: block;
+}
+
+.VideoEmbed-tall {
+  max-width: 340px;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 .VideoEmbed-tall iframe {
-  width: 340px;
-  max-width: 100%;
+  width: 100%;
   height: 600px;
+  max-height: 80vh;
+}
+
+/* ---- composer ----------------------------------------------------------- */
+
+.Composer {
+  padding: 12px;
+}
+
+.Composer-row {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.Composer-avatar {
+  display: none;
+}
+
+.Composer-input {
+  flex: 1;
+  resize: vertical;
+  min-height: 84px;
+  border-radius: 12px;
+  background: #fafbfa;
+}
+
+.Composer-error {
+  color: #c62828;
+  font-size: 0.875rem;
+  margin-top: 6px;
+}
+
+.Composer-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.Composer-photo {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--usoc-border);
+  background: #fff;
+  color: var(--usoc-text);
+}
+
+.Composer-hint {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.75rem;
+  color: var(--usoc-muted);
+  line-height: 1.2;
+}
+
+.Composer-submit {
+  min-width: 96px;
 }
 
 .ImagePreviews {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+  margin-top: 10px;
 }
 
 .ImagePreview {
@@ -155,24 +605,204 @@
 }
 
 .ImagePreview img {
-  width: 96px;
-  height: 96px;
+  width: 76px;
+  height: 76px;
   object-fit: cover;
-  border-radius: 6px;
+  border-radius: 10px;
+  display: block;
 }
 
 .ImagePreview .btn-close {
   position: absolute;
-  top: 4px;
-  right: 4px;
-  background-color: rgba(255, 255, 255, 0.85);
+  top: -6px;
+  right: -6px;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  background-size: 10px;
+  background-color: #fff;
   border-radius: 50%;
-  padding: 4px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+  opacity: 1;
 }
 
 .JoinPrompt {
-  margin: 24px 0;
-  padding: 16px;
-  background-color: #f3f8f3;
-  border-radius: 6px;
+  text-align: center;
+  font-weight: 500;
+  padding: 18px 14px;
+}
+
+.More {
+  margin: 4px 0 var(--usoc-gutter);
+}
+
+/* ---- profile ------------------------------------------------------------ */
+
+.Profile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 22px 16px 18px;
+}
+
+.Profile-name {
+  font-size: 1.4rem;
+  font-weight: 700;
+  margin: 12px 0 4px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  overflow-wrap: anywhere;
+}
+
+.Profile-about {
+  margin: 4px 0 8px;
+  font-size: 1rem;
+  max-width: 480px;
+}
+
+.Profile-meta {
+  font-size: 0.85rem;
+  color: var(--usoc-muted);
+  margin: 0;
+}
+
+.Profile-edit {
+  margin-top: 14px;
+  width: 100%;
+  max-width: 280px;
+}
+
+/* ---- forms (login, register, settings) ---------------------------------- */
+
+.FormCard {
+  padding: 22px 18px;
+  margin-top: 8px;
+}
+
+.FormCard-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.FormCard .InputField {
+  margin: 14px 0;
+}
+
+.FormCard .form-label {
+  font-weight: 500;
+  margin-bottom: 6px;
+}
+
+.FormCard form .btn[type="submit"] {
+  width: 100%;
+  margin-top: 6px;
+}
+
+.FormCard-links {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  margin-top: 16px;
+  text-align: center;
+}
+
+.FormCard-links a {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--usoc-tap);
+  font-weight: 500;
+}
+
+.Divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 18px 0 14px;
+  color: var(--usoc-muted);
+  font-size: 0.85rem;
+}
+
+.Divider::before,
+.Divider::after {
+  content: '';
+  flex: 1;
+  border-top: 1px solid var(--usoc-border);
+}
+
+.OAuthButtons .btn {
+  width: 100%;
+}
+
+.InputField {
+  margin-top: 15px;
+  margin-bottom: 15px;
+}
+
+/* ---- larger phones / tablets / desktop ---------------------------------- */
+
+@media (min-width: 400px) {
+  .Brand-name {
+    font-size: 1.15rem;
+  }
+}
+
+@media (min-width: 576px) {
+  :root {
+    --usoc-gutter: 16px;
+  }
+
+  .Card {
+    padding: 18px;
+  }
+
+  .Composer-avatar {
+    display: block;
+  }
+
+  .Composer-hint {
+    font-size: 0.8rem;
+  }
+
+  .Comment .Content-body,
+  .Comment .Item-foot {
+    padding-left: 42px;
+  }
+
+  .Profile {
+    flex-direction: row;
+    align-items: center;
+    text-align: left;
+    gap: 20px;
+    flex-wrap: wrap;
+  }
+
+  .Profile-name {
+    justify-content: flex-start;
+    margin-top: 0;
+  }
+
+  .Profile-edit {
+    width: auto;
+    margin-top: 10px;
+  }
+}
+
+@media (min-width: 768px) {
+  .Page {
+    padding-top: 24px;
+  }
+
+  .Brand-name {
+    font-size: 1.25rem;
+  }
+
+  .Brand-sub {
+    font-size: 0.75rem;
+  }
 }

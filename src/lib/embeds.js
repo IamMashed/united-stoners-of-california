@@ -23,6 +23,12 @@ export function splitLinks(text) {
   return segments;
 }
 
+// Short display form of a link: no scheme or "www.", long URLs cut with an ellipsis.
+export function displayUrl(href, max = 40) {
+  const short = href.replace(/^https?:\/\/(www\.)?/i, '').replace(/\/$/, '');
+  return short.length > max ? short.slice(0, max - 1) + '…' : short;
+}
+
 const YOUTUBE_HOSTS = ['youtube.com', 'www.youtube.com', 'm.youtube.com', 'music.youtube.com'];
 const YOUTUBE_ID = /^[\w-]{11}$/;
 

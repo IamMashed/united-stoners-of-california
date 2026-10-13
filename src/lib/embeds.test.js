@@ -1,4 +1,4 @@
-import { splitLinks, videoEmbed, videoEmbeds } from './embeds';
+import { displayUrl, splitLinks, videoEmbed, videoEmbeds } from './embeds';
 import { validateImages } from './media';
 
 describe('splitLinks', () => {
@@ -58,5 +58,12 @@ describe('validateImages', () => {
     expect(validateImages([1, 2, 3, 4, 5].map((n) => image(`${n}.jpg`)))).toMatch(/up to 4/);
     expect(validateImages([image('big.jpg', 'image/jpeg', 6 * 1024 * 1024)])).toMatch(/5 MB/);
     expect(validateImages([image('clip.mp4', 'video/mp4')])).toMatch(/only JPEG/);
+  });
+});
+
+describe('displayUrl', () => {
+  test('drops the scheme and www, and shortens long links', () => {
+    expect(displayUrl('https://www.example.com/strains/')).toBe('example.com/strains');
+    expect(displayUrl('https://www.youtube.com/watch?v=dQw4w9WgXcQ&list=PL123456789')).toBe('youtube.com/watch?v=dQw4w9WgXcQ&list=PL…');
   });
 });

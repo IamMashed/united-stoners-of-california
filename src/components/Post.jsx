@@ -1,6 +1,4 @@
 import { memo } from 'react';
-import Stack from 'react-bootstrap/Stack';
-import Button from 'react-bootstrap/Button';
 import { Link } from 'react-router-dom';
 import Avatar from './Avatar';
 import TimeAgo from './TimeAgo';
@@ -10,27 +8,49 @@ export function commentLabel(count) {
   return count === 1 ? '1 comment' : `${count} comments`;
 }
 
-// Used for both posts and comments (`item.author`, `item.body`, `item.image_paths`).
-export default memo(function Post({ item, avatarSize = 48, className = 'Post', canDelete, onDelete, footer }) {
+// Used for both posts (className "Post", rendered as a card) and comments.
+// Layout is mobile-first: a compact author row, then full-width content.
+export default memo(function Post({ item, avatarSize = 40, className = 'Post', canDelete, onDelete, footer, readMoreTo }) {
   return (
-    <Stack direction="horizontal" gap={3} className={className}>
-      <Avatar user={item.author} size={avatarSize} />
-      <div className="flex-grow-1 min-w-0">
-        <p className="mb-1">
-          <Link to={'/user/' + item.author.username}>{item.author.username}</Link>
-          &nbsp;&mdash;&nbsp;
-          <TimeAgo isoDate={item.created_at} />:
-        </p>
-        <Content body={item.body} imagePaths={item.image_paths} />
-        <p className="PostActions">
-          {footer}
-          {canDelete &&
-            <Button variant="link" size="sm" className="text-danger" onClick={() => onDelete(item)}>
-              Delete
-            </Button>
-          }
-        </p>
-      </div>
-    </Stack>
+    <article className={className}>
+      <header className="Item-head">
+        <Avatar user={item.author} size={avatarSize} />
+        <div className="Item-meta">
+          <div className="Item-byline">
+            <Link to={'/user/' + item.author.username} className="Item-author">
+              {item.author.username}
+            </Link>
+            {item.author.is_admin && <span className="FounderBadge">Founder</span>}
+          </div>
+          <TimeAgo isoDate={item.created_at} className="Item-time" />
+        </div>
+        {canDelete &&
+          <button type="button" className="IconButton IconButton-danger" aria-label="Delete"
+            title="Delete" onClick={() => onDelete(item)}>
+            <TrashIcon />
+          </button>
+        }
+      </header>
+      <Content body={item.body} imagePaths={item.image_paths} readMoreTo={readMoreTo} />
+      {footer && <footer className="Item-foot">{footer}</footer>}
+    </article>
   );
 });
+
+function TrashIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6" />
+    </svg>
+  );
+}
+
+export function CommentIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z" />
+    </svg>
+  );
+}

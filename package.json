@@ -16,7 +16,8 @@
     "db:status": "node scripts/db.mjs status dev && node scripts/db.mjs status prod",
     "db:migrate:dev": "node scripts/db.mjs migrate dev",
     "db:migrate:prod": "node scripts/db.mjs migrate prod",
-    "db:seed": "node scripts/db.mjs seed dev"
+    "db:seed": "node scripts/db.mjs seed dev",
+    "screens": "node scripts/screens.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.117.3",
@@ -38,6 +39,7 @@
     "eslint-plugin-react-refresh": "^0.5.7",
     "globals": "^17.13.0",
     "jsdom": "^27.0.1",
+    "playwright-core": "^1.64.0",
     "undici": "^8.11.2",
     "vite": "^8.3.4",
     "vitest": "^5.0.4"

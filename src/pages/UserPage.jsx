@@ -1,8 +1,6 @@
 import { useState, useEffect } from 'react';
-import Stack from 'react-bootstrap/Stack';
 import Spinner from 'react-bootstrap/Spinner';
 import Button from 'react-bootstrap/Button';
-import Badge from 'react-bootstrap/Badge';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import Body from '../components/Body';
 import Avatar from '../components/Avatar';
@@ -33,41 +31,38 @@ function UserProfile({ username }) {
     return () => { active = false; };
   }, [username, api]);
 
+  if (profile === undefined) {
+    return <Body><div className="Loading"><Spinner animation="border" variant="success" /></div></Body>;
+  }
+  if (profile === null) {
+    return <Body><p className="Empty">User not found.</p></Body>;
+  }
+
   return (
     <Body>
-      {profile === undefined ?
-        <Spinner animation="border" />
-      : profile === null ?
-        <p>User not found.</p>
-      :
+      <section className="Card Profile">
+        <Avatar user={profile} size={96} />
+        <h1 className="Profile-name">
+          {profile.username}
+          {profile.is_admin && <span className="FounderBadge">Founder</span>}
+        </h1>
+        {profile.about_me && <p className="Profile-about">{profile.about_me}</p>}
+        <p className="Profile-meta">
+          Joined <TimeAgo isoDate={profile.created_at} /> &middot; Last seen <TimeAgo isoDate={profile.last_seen} />
+        </p>
+        {user?.id === profile.id &&
+          <Button variant="outline-success" className="Profile-edit" onClick={() => navigate('/edit')}>
+            Edit profile
+          </Button>
+        }
+      </section>
+      {profile.is_admin ?
         <>
-          <Stack direction="horizontal" gap={4} className="Profile">
-            <Avatar user={profile} size={128} />
-            <div>
-              <h1>
-                {profile.username}{' '}
-                {profile.is_admin && <Badge bg="success" className="align-middle fs-6">Founder</Badge>}
-              </h1>
-              {profile.about_me && <h5 className="AboutMe">{profile.about_me}</h5>}
-              <p>
-                Member since: <TimeAgo isoDate={profile.created_at} />
-                <br />
-                Last seen: <TimeAgo isoDate={profile.last_seen} />
-              </p>
-              {user?.id === profile.id &&
-                <Button variant="success" onClick={() => navigate('/edit')}>Edit</Button>
-              }
-            </div>
-          </Stack>
-          {profile.is_admin ?
-            <>
-              <h4 className="mt-4">Posts</h4>
-              <Posts authorId={profile.id} />
-            </>
-          :
-            <UserComments userId={profile.id} />
-          }
+          <h2 className="SectionTitle">Posts</h2>
+          <Posts authorId={profile.id} />
         </>
+      :
+        <UserComments userId={profile.id} />
       }
     </Body>
   );
@@ -87,18 +82,20 @@ function UserComments({ userId }) {
 
   return (
     <>
-      <h4 className="mt-4">Recent comments</h4>
+      <h2 className="SectionTitle">Recent comments</h2>
       {comments === undefined ?
-        <Spinner animation="border" size="sm" />
+        <div className="Loading"><Spinner animation="border" size="sm" variant="success" /></div>
       : comments === null ?
-        <p>Could not retrieve comments.</p>
+        <p className="Empty">Could not retrieve comments.</p>
       : comments.length === 0 ?
-        <p>No comments yet.</p>
+        <p className="Empty">No comments yet.</p>
       :
-        comments.map((comment) =>
-          <Post key={comment.id} item={comment} avatarSize={32} className="Comment"
-            footer={<Link to={'/post/' + comment.post_id}>View post</Link>} />
-        )
+        <section className="Card Comments">
+          {comments.map((comment) =>
+            <Post key={comment.id} item={comment} avatarSize={32} className="Comment"
+              footer={<Link to={'/post/' + comment.post_id} className="Item-action">View post &rarr;</Link>} />
+          )}
+        </section>
       }
     </>
   );

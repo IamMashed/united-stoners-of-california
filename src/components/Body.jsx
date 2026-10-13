@@ -1,13 +1,18 @@
-import Container from 'react-bootstrap/Container';
 import FlashMessage from './FlashMessage';
 
-export default function Body({ children }) {
+// Page shell. `form` renders a narrow card for login/registration/settings pages.
+export default function Body({ form, title, children }) {
   return (
-    <Container className="Body">
-      <Container className="Content">
-        <FlashMessage />
-        {children}
-      </Container>
-    </Container>
+    <main className={form ? 'Page Page-form' : 'Page'}>
+      <FlashMessage />
+      {form ?
+        <section className="Card FormCard">
+          {title && <h1 className="FormCard-title">{title}</h1>}
+          {children}
+        </section>
+      :
+        children
+      }
+    </main>
   );
 }

@@ -25,8 +25,7 @@ export default function ResetPage() {
   };
 
   return (
-    <Body>
-      <h1>Reset Your Password</h1>
+    <Body form title="Reset Your Password">
       {user === undefined ?
         <Spinner animation="border" />
       : user === null ?

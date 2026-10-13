@@ -28,7 +28,7 @@ export default function OAuthButtons() {
 
   return (
     <>
-      <hr />
+      <div className="Divider"><span>or</span></div>
       <Stack gap={2} className="OAuthButtons">
         {providers.map((provider) =>
           <Button key={provider} variant="outline-dark" onClick={() => onClick(provider)}>
