@@ -1,0 +1,14 @@
+{
+  // Cloudflare Workers static-assets hosting for the built frontend (`npm run deploy`).
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "united-stoners-of-california",
+  "compatibility_date": "2026-10-06",
+  "observability": {
+    "enabled": true
+  },
+  "assets": {
+    "directory": "./dist",
+    // Unknown paths (e.g. /post/1) serve index.html so React Router can handle them.
+    "not_found_handling": "single-page-application"
+  }
+}

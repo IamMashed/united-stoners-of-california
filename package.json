@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview",
+    "preview": "npm run build && wrangler dev",
     "test": "vitest run",
     "test:db": "node scripts/db.mjs test dev",
     "lint": "eslint .",
@@ -17,7 +17,8 @@
     "db:migrate:dev": "node scripts/db.mjs migrate dev",
     "db:migrate:prod": "node scripts/db.mjs migrate prod",
     "db:seed": "node scripts/db.mjs seed dev",
-    "screens": "node scripts/screens.mjs"
+    "screens": "node scripts/screens.mjs",
+    "deploy": "vite build && wrangler deploy"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.117.3",
@@ -28,6 +29,7 @@
     "react-router-dom": "^7.18.4"
   },
   "devDependencies": {
+    "@cloudflare/vite-plugin": "^1.63.2",
     "@eslint/js": "^9.39.5",
     "@testing-library/dom": "^10.4.2",
     "@testing-library/jest-dom": "^7.0.1",
@@ -42,6 +44,7 @@
     "playwright-core": "^1.64.0",
     "undici": "^8.11.2",
     "vite": "^8.3.4",
-    "vitest": "^5.0.4"
+    "vitest": "^5.0.4",
+    "wrangler": "^4.150.0"
   }
 }

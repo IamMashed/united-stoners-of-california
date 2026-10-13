@@ -107,9 +107,19 @@ in the dashboard.
 
 ## Deploying
 
-1. `npm run db:migrate:prod`
-2. Set the real domain as `siteUrl` for prod in `supabase/environments.json`, then `npm run db -- auth prod`.
-3. `npm run build` and serve `dist/` from any static host, with an SPA fallback to `index.html`.
+The frontend is hosted on Cloudflare (Workers static assets, free tier):
+**https://united-stoners-of-california.united-stoners-of-california.workers.dev**
+
+```bash
+npx wrangler login          # once
+npm run db:migrate:prod     # if there are new migrations
+npm run deploy              # vite build (prod env) + wrangler deploy
+```
+
+`wrangler.jsonc` serves `dist/` with SPA fallback (deep links like `/post/1` load `index.html`);
+`public/_headers` sets security and caching headers. If the URL ever changes, update `siteUrl`
+for prod in `supabase/environments.json` and run `npm run db -- auth prod`, otherwise
+confirmation and password-reset emails link to the wrong place.
 
 ## Project layout
 

@@ -3,13 +3,18 @@
     "ref": "ixfalfnskarultfdqsut",
     "viteMode": "development",
     "siteUrl": "http://localhost:5173",
-    "extraRedirectUrls": ["http://127.0.0.1:5173/**"],
+    "extraRedirectUrls": [
+      "http://127.0.0.1:5173/**"
+    ],
     "allowDestructive": true
   },
   "prod": {
     "ref": "psarkbkrhukowqdivkto",
     "viteMode": "production",
-    "siteUrl": "http://localhost:4173",
-    "allowDestructive": false
+    "siteUrl": "https://united-stoners-of-california.united-stoners-of-california.workers.dev",
+    "allowDestructive": false,
+    "extraRedirectUrls": [
+      "http://localhost:4173/**"
+    ]
   }
 }
