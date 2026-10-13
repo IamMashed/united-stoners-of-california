@@ -1,0 +1,128 @@
+:root {
+  --usoc-green: #2f6b3a;
+  --usoc-green-dark: #1f4a27;
+  --usoc-gold: #e0b44c;
+  --usoc-link: #2f6b3a;
+}
+
+.App {
+  padding: 0;
+}
+
+.Header {
+  background-color: var(--usoc-green);
+  border-bottom: 3px solid var(--usoc-gold);
+}
+
+.Header .navbar-brand {
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.Header .dropdown-toggle::after {
+  color: #fff;
+}
+
+.Sidebar {
+  width: 120px;
+  margin: 5px;
+  position: sticky;
+  top: 62px;
+  align-self: flex-start;
+  align-items: start;
+}
+
+.Sidebar .nav-item {
+  width: 100%;
+}
+
+.Sidebar a, .dropdown-item, .dropdown-item.active {
+  color: #444;
+}
+
+.Sidebar a:hover {
+  background-color: #eef5ef;
+}
+
+.Sidebar a:visited {
+  color: #444;
+}
+
+.Sidebar .nav-item .active, .dropdown-item.active {
+  background-color: #d7ecd9;
+}
+
+.Content {
+  margin-top: 10px;
+}
+
+.Post, .Comment {
+  align-items: start;
+  padding-top: 8px;
+  border-bottom: 1px solid #eee;
+}
+
+.Post:hover {
+  background-color: #f8faf8;
+}
+
+.Post a, .Comment a, .Post a:visited, .Comment a:visited {
+  color: var(--usoc-link);
+  text-decoration: none;
+}
+
+.PostBody, .AboutMe {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.PostActions {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  font-size: 0.9rem;
+}
+
+.PostActions .btn-link {
+  padding: 0;
+}
+
+.Comments {
+  margin-left: 64px;
+}
+
+.Avatar {
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.More {
+  margin-top: 10px;
+  margin-bottom: 10px;
+  text-align: right;
+}
+
+.InputField {
+  margin-top: 15px;
+  margin-bottom: 15px;
+}
+
+.Write {
+  align-items: start;
+  margin-bottom: 10px;
+  padding: 30px 0px 30px 0px;
+  border-bottom: 1px solid #eee;
+}
+
+.Write form {
+  width: 100%;
+}
+
+.Write .InputField {
+  margin-top: 0;
+  margin-bottom: 8px;
+}
+
+.OAuthButtons {
+  max-width: 320px;
+}
