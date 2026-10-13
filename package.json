@@ -8,12 +8,15 @@
     "build": "vite build",
     "preview": "vite preview",
     "test": "vitest run",
-    "test:db": "supabase test db",
+    "test:db": "node scripts/db.mjs test dev",
     "lint": "eslint .",
-    "db:start": "supabase start --ignore-health-check",
-    "db:reset": "supabase db reset",
     "test:smoke": "node scripts/smoke.mjs",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "db": "node scripts/db.mjs",
+    "db:status": "node scripts/db.mjs status dev && node scripts/db.mjs status prod",
+    "db:migrate:dev": "node scripts/db.mjs migrate dev",
+    "db:migrate:prod": "node scripts/db.mjs migrate prod",
+    "db:seed": "node scripts/db.mjs seed dev"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.117.3",
@@ -35,6 +38,7 @@
     "eslint-plugin-react-refresh": "^0.5.7",
     "globals": "^17.13.0",
     "jsdom": "^27.0.1",
+    "undici": "^8.11.2",
     "vite": "^8.3.4",
     "vitest": "^5.0.4"
   }

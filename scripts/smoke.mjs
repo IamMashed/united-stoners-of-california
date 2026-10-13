@@ -1,16 +1,24 @@
-// End-to-end smoke test of SupabaseApiClient against the local stack.
-// Requires `supabase start` + `supabase db reset` (seed data). Run: npm run test:smoke
+// End-to-end smoke test of SupabaseApiClient against the dev Supabase project.
+// Requires seed data (`npm run db:seed`). Run: npm run test:smoke
+// Signup is not exercised here: on hosted Supabase it sends real emails.
 import { readFileSync } from 'node:fs';
 import { createClient } from '@supabase/supabase-js';
+import { fetch as undiciFetch, EnvHttpProxyAgent } from 'undici';
 import SupabaseApiClient from '../src/api/SupabaseApiClient.js';
 
 const env = Object.fromEntries(
-  readFileSync(new URL('../.env.local', import.meta.url), 'utf8')
+  readFileSync(new URL('../.env.development', import.meta.url), 'utf8')
     .split('\n').filter((l) => l.includes('=')).map((l) => l.split(/=(.*)/s).slice(0, 2))
 );
 const url = env.VITE_SUPABASE_URL;
 const key = env.VITE_SUPABASE_ANON_KEY;
-const makeClient = () => createClient(url, key, { auth: { persistSession: false } });
+// Node's built-in fetch ignores HTTP(S)_PROXY / NO_PROXY; this agent honours them.
+const dispatcher = new EnvHttpProxyAgent();
+const proxiedFetch = (input, init) => undiciFetch(input, { ...init, dispatcher });
+const makeClient = () => createClient(url, key, {
+  auth: { persistSession: false },
+  global: { fetch: proxiedFetch },
+});
 
 let failures = 0;
 function check(condition, message) {
@@ -54,14 +62,6 @@ check(dupe.error?.message?.includes('profiles_username_lower_key'), 'duplicate u
 
 check(!(await api.deletePost(created.data.id)).error, 'author can delete own post');
 check((await api.getPost(created.data.id)).data === null, 'deleted post is gone');
-
-const email = `smoke${Date.now()}@example.com`;
-const signup = await makeClient().auth.signUp({
-  email, password: 'password123', options: { data: { username: `smoky${Date.now() % 100000}` } },
-});
-check(!signup.error && signup.data.session === null, `signup requires email confirmation ${signup.error?.message ?? ''}`);
-const unconfirmed = await makeClient().auth.signInWithPassword({ email, password: 'password123' });
-check(unconfirmed.error?.code === 'email_not_confirmed', `unconfirmed login is refused (${unconfirmed.error?.code})`);
 
 console.log(failures ? `\n${failures} check(s) failed` : '\nAll smoke checks passed');
 process.exit(failures ? 1 : 0);
