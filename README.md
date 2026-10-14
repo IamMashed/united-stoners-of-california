@@ -17,8 +17,9 @@ strains, growers, dispensaries, grow and extraction tips.
 - **Members** (email + password, or GitHub / Google OAuth) can comment. Comments can include
   up to 4 photos (JPEG/PNG/WebP/GIF, 5 MB each), clickable links, and embedded videos from
   YouTube, Vimeo, TikTok and Instagram links. Members can delete their own comments.
-- **The superuser** (exactly one account) writes the posts, which support the same media,
-  and can delete any comment.
+- **The superuser** (exactly one account) writes and edits the posts, which support the same
+  media, can delete any comment, and can ban members from commenting (and unban them) from
+  their profile page. Banned members can still read and delete their own comments.
 
 All of this is enforced in the database (RLS + column grants + storage policies), not only in
 the UI: a member calling the API directly still cannot create a post.
@@ -51,6 +52,33 @@ macOS Keychain (service `usoc-supabase-db`), never in the repo.
 
 Prerequisites: Node 20+ and the Supabase CLI, logged in (`brew install supabase/tap/supabase && supabase login`).
 No Docker needed.
+
+### Setting up a new machine
+
+Everything needed to build, test and deploy is in this repo; only logins and database
+passwords live outside it.
+
+```bash
+gh auth login                       # GitHub account IamMashed
+git clone https://github.com/IamMashed/united-stoners-of-california.git
+cd united-stoners-of-california
+git config user.name iammashed && git config user.email rustamallakov@gmail.com
+npm ci
+supabase login                      # Supabase account that owns org mashedOrg
+npx wrangler login                  # Cloudflare account rustamallakov@gmail.com
+npm run db:status                   # sanity check: both projects reachable, no pending migrations
+npm test && npm run test:db && npm run test:smoke
+```
+
+- `scripts/db.mjs` reads the Supabase token from the macOS Keychain (where `supabase login`
+  puts it). On Linux/Windows, set `SUPABASE_ACCESS_TOKEN` instead (create one under
+  Account → Access Tokens in the Supabase dashboard).
+- `npm ci` uses whatever registry the machine is configured for (`.npmrc` sets
+  `replace-registry-host=always`, so lockfile URLs from a corporate mirror don't matter).
+- Behind a corporate proxy, set `HTTPS_PROXY`; the scripts honour it. Without a proxy nothing
+  extra is needed.
+- Database passwords (only for direct Postgres access) are in the Supabase dashboard
+  (Project Settings → Database → reset password) if you don't have them saved.
 
 ```bash
 npm install
