@@ -10,7 +10,7 @@ export const MEDIA_BUCKET = 'media';
 const AUTHOR = 'author:profiles(id, username, avatar_url, is_admin)';
 const POST_SELECT = `id, body, image_paths, created_at, updated_at, ${AUTHOR}, comments(count)`;
 const COMMENT_SELECT = `id, post_id, body, image_paths, created_at, updated_at, ${AUTHOR}`;
-const PROFILE_SELECT = 'id, username, about_me, avatar_url, is_admin, created_at, last_seen';
+const PROFILE_SELECT = 'id, username, about_me, avatar_url, is_admin, banned_at, created_at, last_seen';
 
 function normalizePost(row) {
   const { comments, ...post } = row;
@@ -135,6 +135,26 @@ export default class SupabaseApiClient {
     return { data: data && normalizePost(data), error };
   }
 
+  // Superuser only. `keepPaths` are the existing images to keep (in order); `files`
+  // are new uploads appended after them. Dropped images are removed from storage
+  // once the update succeeds; new uploads are removed again if it fails.
+  async updatePost(post, { body, keepPaths, files }) {
+    const { data: added, error: uploadError } = await this.uploadImages(files);
+    if (uploadError) {
+      return { data: null, error: uploadError };
+    }
+    const result = await this.run(
+      this.supabase.from('posts').update({ body: body.trim(), image_paths: [...keepPaths, ...added] })
+        .eq('id', post.id).select(POST_SELECT).single()
+    );
+    if (result.error) {
+      await this.removeImages(added);
+      return result;
+    }
+    await this.removeImages((post.image_paths || []).filter((p) => !keepPaths.includes(p)));
+    return { data: normalizePost(result.data), error: null };
+  }
+
   async deletePost(post) {
     const result = await this.run(this.supabase.from('posts').delete().eq('id', post.id));
     if (!result.error) {
@@ -191,6 +211,12 @@ export default class SupabaseApiClient {
       this.supabase.from('profiles').update({ username, about_me })
         .eq('id', id).select(PROFILE_SELECT).single()
     );
+  }
+
+  // Superuser only: bans (true) or unbans (false) a member from commenting.
+  // Resolves to the member's new `banned_at` (null when unbanned).
+  async setBanned(userId, banned) {
+    return this.run(this.supabase.rpc('set_banned', { target: userId, banned }));
   }
 
   async usernameAvailable(name) {

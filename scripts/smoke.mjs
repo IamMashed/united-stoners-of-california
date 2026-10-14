@@ -87,9 +87,34 @@ check(!afterDelete.data.some((c) => c.id === comment.data.id), 'deleted comment 
 const stillStored = await admin.api.supabase.storage.from('media').exists(comment.data.image_paths[0]);
 check(stillStored.data === false, 'deleted comment\'s photo is removed from storage');
 
+const edited = await admin.api.updatePost(post.data, { body: 'smoke test post (edited)', keepPaths: [], files: [] });
+check(!edited.error && edited.data.body === 'smoke test post (edited)' && edited.data.updated_at
+  && edited.data.image_paths.length === 0, `the superuser can edit a post ${edited.error?.message ?? ''}`);
+const droppedCover = await admin.api.supabase.storage.from('media').exists(post.data.image_paths[0]);
+check(droppedCover.data === false, 'a photo removed while editing is deleted from storage');
+const memberEdit = await member.api.updatePost(edited.data, { body: 'hacked', keepPaths: [], files: [] });
+check(memberEdit.error, 'members cannot edit posts');
+
+// ---- banning --------------------------------------------------------------------
+const memberBan = await member.api.setBanned(admin.id, true);
+check(memberBan.error?.code === '42501', `members cannot ban anyone (${memberBan.error?.code})`);
+try {
+  const ban = await admin.api.setBanned(member.id, true);
+  check(!ban.error && ban.data, `the superuser can ban a member ${ban.error?.message ?? ''}`);
+  const bannedComment = await member.api.createComment(firstPost.id, { body: 'still here?', files: [] });
+  check(bannedComment.error?.code === '42501', `banned members cannot comment (${bannedComment.error?.code})`);
+}
+finally {
+  const unban = await admin.api.setBanned(member.id, false);
+  check(!unban.error && unban.data === null, `the superuser can unban a member ${unban.error?.message ?? ''}`);
+}
+const backAgain = await member.api.createComment(firstPost.id, { body: 'back again', files: [] });
+check(!backAgain.error, 'unbanned members can comment again');
+if (!backAgain.error) {
+  check(!(await member.api.deleteComment(backAgain.data)).error, 'members can delete their own comments');
+}
+
 check(!(await admin.api.deletePost(post.data)).error, 'the superuser can delete posts');
-const coverStored = await admin.api.supabase.storage.from('media').exists(post.data.image_paths[0]);
-check(coverStored.data === false, 'deleted post\'s photo is removed from storage');
 
 console.log(failures ? `\n${failures} check(s) failed` : '\nAll smoke checks passed');
 process.exit(failures ? 1 : 0);

@@ -10,7 +10,9 @@ export function commentLabel(count) {
 
 // Used for both posts (className "Post", rendered as a card) and comments.
 // Layout is mobile-first: a compact author row, then full-width content.
-export default memo(function Post({ item, avatarSize = 40, className = 'Post', canDelete, onDelete, footer, readMoreTo }) {
+export default memo(function Post({
+  item, avatarSize = 40, className = 'Post', canEdit, onEdit, canDelete, onDelete, footer, readMoreTo,
+}) {
   return (
     <article className={className}>
       <header className="Item-head">
@@ -22,8 +24,17 @@ export default memo(function Post({ item, avatarSize = 40, className = 'Post', c
             </Link>
             {item.author.is_admin && <span className="FounderBadge">Founder</span>}
           </div>
-          <TimeAgo isoDate={item.created_at} className="Item-time" />
+          <span className="Item-time">
+            <TimeAgo isoDate={item.created_at} />
+            {item.updated_at && <span title={`Edited ${new Date(item.updated_at).toLocaleString()}`}> &middot; edited</span>}
+          </span>
         </div>
+        {canEdit &&
+          <button type="button" className="IconButton" aria-label="Edit"
+            title="Edit" onClick={() => onEdit(item)}>
+            <PencilIcon />
+          </button>
+        }
         {canDelete &&
           <button type="button" className="IconButton IconButton-danger" aria-label="Delete"
             title="Delete" onClick={() => onDelete(item)}>
@@ -36,6 +47,15 @@ export default memo(function Post({ item, avatarSize = 40, className = 'Post', c
     </article>
   );
 });
+
+function PencilIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M4 20h4L19 9l-4-4L4 16zM13.5 6.5l4 4" />
+    </svg>
+  );
+}
 
 function TrashIcon() {
   return (

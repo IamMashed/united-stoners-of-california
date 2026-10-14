@@ -2,7 +2,7 @@
 -- Verifies the signup trigger, RLS policies and column grants that protect the
 -- PostgREST API. Everything runs in a transaction and is rolled back.
 begin;
-select plan(36);
+select plan(47);
 
 -------------------------------------------------------------------------------
 -- Fixtures (as postgres). The auth trigger creates the profiles.
@@ -160,6 +160,61 @@ select isnt_empty($$update public.posts set body = 'edited' where body = 'new ad
   'the superuser can edit posts');
 select isnt_empty($$delete from public.comments where body = 'carol comment' returning id$$,
   'the superuser can delete anyone''s comment');
+
+select is(public.set_banned('bbbbbbbb-0000-0000-0000-000000000002', true) is not null, true,
+  'the superuser can ban a member');
+select throws_ok($$select public.set_banned('aaaaaaaa-0000-0000-0000-000000000001', true)$$,
+  'P0002', null, 'the superuser cannot be banned');
+
+reset role;
+
+-------------------------------------------------------------------------------
+-- Banned member (bob)
+-------------------------------------------------------------------------------
+insert into public.comments (post_id, author_id, body)
+  select id, 'bbbbbbbb-0000-0000-0000-000000000002', 'bob old comment' from public.posts where body = 'admin post';
+
+set local role authenticated;
+select set_config('request.jwt.claims',
+  '{"sub":"bbbbbbbb-0000-0000-0000-000000000002","role":"authenticated"}', true);
+
+select throws_ok(
+  $$insert into public.comments (post_id, body) select id, 'banned comment' from public.posts where body = 'admin post'$$,
+  '42501', null, 'banned members cannot comment');
+select throws_ok(
+  $$update public.comments set body = 'sneaky edit' where body = 'bob old comment'$$,
+  '42501', null, 'banned members cannot edit their comments');
+select throws_ok(
+  $$insert into storage.objects (bucket_id, name) values ('media', 'bbbbbbbb-0000-0000-0000-000000000002/ban.jpg')$$,
+  '42501', null, 'banned members cannot upload images');
+select isnt_empty($$delete from public.comments where body = 'bob old comment' returning id$$,
+  'banned members can still delete their own comments');
+select throws_ok($$select public.set_banned('bbbbbbbb-0000-0000-0000-000000000002', false)$$,
+  '42501', null, 'members cannot unban themselves');
+select throws_ok($$update public.profiles set banned_at = null where id = 'bbbbbbbb-0000-0000-0000-000000000002'$$,
+  '42501', null, 'members cannot clear banned_at directly');
+
+reset role;
+
+set local role anon;
+select set_config('request.jwt.claims', '{"role":"anon"}', true);
+select throws_ok($$select public.set_banned('cccccccc-0000-0000-0000-000000000003', true)$$,
+  '42501', null, 'visitors cannot ban anyone');
+reset role;
+
+set local role authenticated;
+select set_config('request.jwt.claims',
+  '{"sub":"aaaaaaaa-0000-0000-0000-000000000001","role":"authenticated"}', true);
+select is(public.set_banned('bbbbbbbb-0000-0000-0000-000000000002', false), null,
+  'the superuser can unban a member');
+reset role;
+
+set local role authenticated;
+select set_config('request.jwt.claims',
+  '{"sub":"bbbbbbbb-0000-0000-0000-000000000002","role":"authenticated"}', true);
+select lives_ok(
+  $$insert into public.comments (post_id, body) select id, 'back again' from public.posts where body = 'admin post'$$,
+  'unbanned members can comment again');
 
 reset role;
 

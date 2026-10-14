@@ -4,15 +4,22 @@ import Button from 'react-bootstrap/Button';
 import CloseButton from 'react-bootstrap/CloseButton';
 import Avatar from './Avatar';
 import { useUser } from '../contexts/UserProvider';
+import { useApi } from '../contexts/ApiProvider';
 import { fieldErrorsFromDb } from '../lib/dbErrors';
 import { ACCEPTED_IMAGE_TYPES, MAX_IMAGES, validateImages } from '../lib/media';
 
 // Compose box for posts and comments: text (links and video URLs are rendered
-// automatically) plus up to MAX_IMAGES photos. `onSubmit({ body, files })` must
-// return `{ error }`; the box clears itself on success.
-export default function Composer({ placeholder, submitLabel, onSubmit, autoFocus = false }) {
+// automatically) plus up to MAX_IMAGES photos. `onSubmit({ body, files, keepPaths })`
+// must return `{ error }`; the box clears itself on success.
+// Edit mode: pass `initialBody` / `initialPaths` (already uploaded images, which the
+// user can remove; `keepPaths` lists the ones left) and `onCancel`.
+export default function Composer({
+  placeholder, submitLabel, onSubmit, autoFocus = false, initialBody = '', initialPaths = [], onCancel,
+}) {
   const [formErrors, setFormErrors] = useState({});
   const [files, setFiles] = useState([]);
+  const [keepPaths, setKeepPaths] = useState(initialPaths);
+  const api = useApi();
   const [busy, setBusy] = useState(false);
   const textField = useRef();
   const fileInput = useRef();
@@ -26,7 +33,7 @@ export default function Composer({ placeholder, submitLabel, onSubmit, autoFocus
   const addFiles = (ev) => {
     const next = [...files, ...ev.target.files];
     ev.target.value = '';
-    const error = validateImages(next);
+    const error = validateImages(next, keepPaths.length);
     if (error) {
       setFormErrors({ images: error });
       return;
@@ -40,12 +47,12 @@ export default function Composer({ placeholder, submitLabel, onSubmit, autoFocus
   const handleSubmit = async (ev) => {
     ev.preventDefault();
     const body = textField.current.value.trim();
-    if (!body && files.length === 0) {
+    if (!body && files.length === 0 && keepPaths.length === 0) {
       setFormErrors({ body: 'Write something or attach a photo.' });
       return;
     }
     setBusy(true);
-    const { error } = await onSubmit({ body, files });
+    const { error } = await onSubmit({ body, files, keepPaths });
     setBusy(false);
     if (error) {
       setFormErrors(fieldErrorsFromDb(error) || { body: error.message });
@@ -62,13 +69,20 @@ export default function Composer({ placeholder, submitLabel, onSubmit, autoFocus
       <div className="Composer-row">
         <span className="Composer-avatar"><Avatar user={user} size={40} /></span>
         <Form.Control
-          as="textarea" rows={3} name="body" ref={textField}
+          as="textarea" rows={3} name="body" ref={textField} defaultValue={initialBody}
           placeholder={placeholder} aria-label={placeholder}
           isInvalid={!!formErrors.body} className="Composer-input" />
       </div>
       {formErrors.body && <div className="Composer-error">{formErrors.body}</div>}
-      {previews.length > 0 &&
+      {keepPaths.length + previews.length > 0 &&
         <div className="ImagePreviews">
+          {keepPaths.map((path, i) =>
+            <div key={path} className="ImagePreview">
+              <img src={api.mediaUrl(path)} alt={`Photo ${i + 1}`} />
+              <CloseButton aria-label={`Remove photo ${i + 1}`}
+                onClick={() => setKeepPaths(keepPaths.filter((p) => p !== path))} />
+            </div>
+          )}
           {previews.map((url, i) =>
             <div key={url} className="ImagePreview">
               <img src={url} alt={files[i].name} />
@@ -79,13 +93,20 @@ export default function Composer({ placeholder, submitLabel, onSubmit, autoFocus
       }
       {formErrors.images && <div className="Composer-error">{formErrors.images}</div>}
       <div className="Composer-actions">
-        <Button variant="light" className="Composer-photo" disabled={busy || files.length >= MAX_IMAGES}
+        <Button variant="light" className="Composer-photo" disabled={busy || keepPaths.length + files.length >= MAX_IMAGES}
           onClick={() => fileInput.current.click()}>
           <CameraIcon /> <span>Photo</span>
         </Button>
-        <span className="Composer-hint">Video links embed automatically</span>
+        {onCancel ?
+          <>
+            <span className="Composer-hint" />
+            <Button variant="outline-secondary" disabled={busy} onClick={onCancel}>Cancel</Button>
+          </>
+        :
+          <span className="Composer-hint">Video links embed automatically</span>
+        }
         <Button variant="success" type="submit" disabled={busy} className="Composer-submit">
-          {busy ? 'Posting…' : submitLabel}
+          {busy ? 'Saving…' : submitLabel}
         </Button>
       </div>
       <input ref={fileInput} type="file" accept={ACCEPTED_IMAGE_TYPES} multiple hidden

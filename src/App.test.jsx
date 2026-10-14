@@ -1,5 +1,6 @@
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { vi } from 'vitest';
 import App from './App';
 import { makeFakeApi, makePost, makeComment, KUSH, HASH } from './test/fakeApi';
 
@@ -15,6 +16,13 @@ async function logIn(email) {
 }
 
 const POSTS = [makePost(1, KUSH, 'Rosin at 180F', 2)];
+
+beforeEach(() => {
+  vi.spyOn(window, 'confirm').mockReturnValue(true);
+});
+afterEach(() => {
+  vi.restoreAllMocks();
+});
 const COMMENTS = [
   makeComment(10, 1, HASH, 'What micron bags?'),
   makeComment(11, 1, KUSH, '25u for full melt.'),
@@ -96,7 +104,7 @@ describe('posting is superuser-only', () => {
 
     const posts = await screen.findAllByText(/Harvest day|Rosin at 180F/);
     expect(posts.map((el) => el.textContent)).toEqual(['Harvest day', 'Rosin at 180F']);
-    expect(api.createPost).toHaveBeenCalledWith({ body: 'Harvest day', files: [photo] });
+    expect(api.createPost).toHaveBeenCalledWith(expect.objectContaining({ body: 'Harvest day', files: [photo] }));
     const newPost = posts[0].closest('.Post');
     expect(within(newPost).getByRole('img', { name: 'Photo 1' }))
       .toHaveAttribute('src', 'https://media.test/u-kush/harvest.jpg');
@@ -145,6 +153,115 @@ describe('commenting', () => {
 
     expect(await screen.findByText(/menu.pdf: only JPEG, PNG, WebP and GIF/)).toBeInTheDocument();
     expect(api.createComment).not.toHaveBeenCalled();
+  });
+});
+
+describe('editing posts', () => {
+  test('regular members get no edit button', async () => {
+    renderAt('/post/1', makeFakeApi({ loggedInAs: HASH, posts: POSTS, comments: COMMENTS }));
+
+    await screen.findByRole('button', { name: 'Comment' });  // user loaded
+    const post = screen.getByText('Rosin at 180F').closest('.Post');
+    expect(within(post).queryByRole('button', { name: 'Edit' })).toBeNull();
+  });
+
+  test('the superuser can change the text and drop a photo', async () => {
+    const withPhoto = makePost(1, KUSH, 'Rosin at 180F', 0, ['u-kush/old.jpg']);
+    const api = makeFakeApi({ loggedInAs: KUSH, posts: [withPhoto] });
+    renderAt('/post/1', api);
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Edit' }));
+    const box = screen.getByPlaceholderText('Edit the post…');
+    expect(box).toHaveValue('Rosin at 180F');
+    await userEvent.clear(box);
+    await userEvent.type(box, 'Rosin at 190F');
+    await userEvent.click(screen.getByRole('button', { name: 'Remove photo 1' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    const post = (await screen.findByText('Rosin at 190F')).closest('.Post');
+    expect(within(post).getByText(/edited/)).toBeInTheDocument();
+    expect(within(post).queryByRole('img', { name: 'Photo 1' })).toBeNull();
+    expect(api.updatePost).toHaveBeenCalledWith(withPhoto,
+      { body: 'Rosin at 190F', keepPaths: [], files: [] });
+  });
+
+  test('cancel leaves the post unchanged', async () => {
+    const api = makeFakeApi({ loggedInAs: KUSH, posts: POSTS });
+    renderAt('/post/1', api);
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Edit' }));
+    await userEvent.type(screen.getByPlaceholderText('Edit the post…'), ' extra');
+    await userEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+
+    expect(screen.getByText('Rosin at 180F')).toBeInTheDocument();
+    expect(api.updatePost).not.toHaveBeenCalled();
+  });
+});
+
+describe('deleting comments', () => {
+  test('a member deletes their own comment and the count drops', async () => {
+    const api = makeFakeApi({ loggedInAs: HASH, posts: POSTS, comments: COMMENTS });
+    renderAt('/post/1', api);
+
+    const mine = (await screen.findByText('What micron bags?')).closest('.Comment');
+    await userEvent.click(within(mine).getByRole('button', { name: 'Delete' }));
+
+    expect(screen.queryByText('What micron bags?')).toBeNull();
+    expect(screen.getByText('1 comment')).toBeInTheDocument();
+    expect(api.deleteComment).toHaveBeenCalledWith(COMMENTS[0]);
+  });
+
+  test('a member can delete their comments from their profile too', async () => {
+    renderAt('/user/hashqueen', makeFakeApi({ loggedInAs: HASH, posts: POSTS, comments: COMMENTS }));
+
+    const mine = (await screen.findByText('What micron bags?')).closest('.Comment');
+    await userEvent.click(within(mine).getByRole('button', { name: 'Delete' }));
+
+    expect(await screen.findByText('No comments yet.')).toBeInTheDocument();
+  });
+
+  test('nothing is deleted when the confirmation is declined', async () => {
+    window.confirm.mockReturnValue(false);
+    const api = makeFakeApi({ loggedInAs: KUSH, posts: POSTS, comments: COMMENTS });
+    renderAt('/post/1', api);
+
+    const theirs = (await screen.findByText('What micron bags?')).closest('.Comment');
+    await userEvent.click(within(theirs).getByRole('button', { name: 'Delete' }));
+
+    expect(screen.getByText('What micron bags?')).toBeInTheDocument();
+    expect(api.deleteComment).not.toHaveBeenCalled();
+  });
+});
+
+describe('banning', () => {
+  test('the superuser can ban and then unban a member from their profile', async () => {
+    const api = makeFakeApi({ loggedInAs: KUSH, posts: POSTS, comments: COMMENTS });
+    renderAt('/user/hashqueen', api);
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Ban from commenting' }));
+    expect(await screen.findByText('Banned')).toBeInTheDocument();
+    expect(api.setBanned).toHaveBeenLastCalledWith('u-hash', true);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Unban' }));
+    expect(await screen.findByRole('button', { name: 'Ban from commenting' })).toBeInTheDocument();
+    expect(screen.queryByText('Banned')).toBeNull();
+    expect(api.setBanned).toHaveBeenLastCalledWith('u-hash', false);
+  });
+
+  test('members and visitors see no ban button, and the superuser has none on their own profile', async () => {
+    renderAt('/user/hashqueen', makeFakeApi({ loggedInAs: HASH, comments: COMMENTS }));
+    await screen.findByRole('button', { name: 'Edit profile' });
+    expect(screen.queryByRole('button', { name: /Ban/ })).toBeNull();
+  });
+
+  test('a banned member sees a notice instead of the comment box', async () => {
+    const banned = { ...HASH, banned_at: '2026-10-14T00:00:00Z' };
+    renderAt('/post/1', makeFakeApi({ loggedInAs: banned, profiles: [KUSH, banned], posts: POSTS, comments: COMMENTS }));
+
+    expect(await screen.findByText('You have been banned from commenting.')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Comment' })).toBeNull();
+    const mine = screen.getByText('What micron bags?').closest('.Comment');
+    expect(within(mine).getByRole('button', { name: 'Delete' })).toBeInTheDocument();
   });
 });
 

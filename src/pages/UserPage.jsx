@@ -9,6 +9,7 @@ import Post from '../components/Post';
 import TimeAgo from '../components/TimeAgo';
 import { useApi } from '../contexts/ApiProvider';
 import { useUser } from '../contexts/UserProvider';
+import { useFlash } from '../contexts/FlashProvider';
 
 // Keyed on the URL param so navigating between profiles starts from a clean state.
 export default function UserPage() {
@@ -20,7 +21,9 @@ function UserProfile({ username }) {
   const [profile, setProfile] = useState();
   const api = useApi();
   const { user } = useUser();
+  const flash = useFlash();
   const navigate = useNavigate();
+  const [banBusy, setBanBusy] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -30,6 +33,26 @@ function UserProfile({ username }) {
     })();
     return () => { active = false; };
   }, [username, api]);
+
+  const toggleBan = async () => {
+    const banning = !profile.banned_at;
+    const question = banning
+      ? `Ban ${profile.username} from commenting? Their existing comments stay up.`
+      : `Let ${profile.username} comment again?`;
+    if (!window.confirm(question)) return;
+    setBanBusy(true);
+    const { data, error } = await api.setBanned(profile.id, banning);
+    setBanBusy(false);
+    if (error) {
+      flash(`Could not update ${profile.username}: ${error.message}`, 'danger');
+      return;
+    }
+    setProfile((current) => ({ ...current, banned_at: data }));
+    flash(banning ? `${profile.username} can no longer comment.` : `${profile.username} can comment again.`, 'success');
+  };
+
+  const isAdmin = !!user?.is_admin;
+  const showBanned = !!profile?.banned_at && (isAdmin || user?.id === profile.id);
 
   if (profile === undefined) {
     return <Body><div className="Loading"><Spinner animation="border" variant="success" /></div></Body>;
@@ -45,6 +68,7 @@ function UserProfile({ username }) {
         <h1 className="Profile-name">
           {profile.username}
           {profile.is_admin && <span className="FounderBadge">Founder</span>}
+          {showBanned && <span className="BannedBadge">Banned</span>}
         </h1>
         {profile.about_me && <p className="Profile-about">{profile.about_me}</p>}
         <p className="Profile-meta">
@@ -53,6 +77,12 @@ function UserProfile({ username }) {
         {user?.id === profile.id &&
           <Button variant="outline-success" className="Profile-edit" onClick={() => navigate('/edit')}>
             Edit profile
+          </Button>
+        }
+        {isAdmin && !profile.is_admin &&
+          <Button variant={profile.banned_at ? 'outline-success' : 'outline-danger'} className="Profile-edit"
+            disabled={banBusy} onClick={toggleBan}>
+            {profile.banned_at ? 'Unban' : 'Ban from commenting'}
           </Button>
         }
       </section>
@@ -71,6 +101,15 @@ function UserProfile({ username }) {
 function UserComments({ userId }) {
   const [comments, setComments] = useState();
   const api = useApi();
+  const { user } = useUser();
+
+  const deleteComment = async (comment) => {
+    if (!window.confirm('Delete this comment?')) return;
+    const { error } = await api.deleteComment(comment);
+    if (!error) {
+      setComments((current) => current.filter((c) => c.id !== comment.id));
+    }
+  };
 
   useEffect(() => {
     let active = true;
@@ -93,6 +132,8 @@ function UserComments({ userId }) {
         <section className="Card Comments">
           {comments.map((comment) =>
             <Post key={comment.id} item={comment} avatarSize={32} className="Comment"
+              canDelete={!!user && (user.is_admin || comment.author.id === user.id)}
+              onDelete={deleteComment}
               footer={<Link to={'/post/' + comment.post_id} className="Item-action">View post &rarr;</Link>} />
           )}
         </section>

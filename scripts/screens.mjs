@@ -29,6 +29,10 @@ const PAGES = [
   ['profile-member', '/user/hashqueen', 'hashqueen@example.com'],
   ['profile-admin', '/user/kushking', null],
   ['edit-profile', '/edit', 'hashqueen@example.com'],
+  ['post-edit-admin', '/post/2', 'kushking@example.com', async (page) => {
+    await page.getByRole('button', { name: 'Edit' }).first().click();
+  }],
+  ['profile-member-as-admin', '/user/hashqueen', 'kushking@example.com'],
 ];
 
 const filters = process.argv.slice(2);

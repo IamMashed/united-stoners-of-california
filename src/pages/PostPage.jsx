@@ -17,6 +17,7 @@ export default function PostPage() {
 function PostThread({ postId }) {
   const [post, setPost] = useState(Number.isInteger(postId) ? undefined : null);
   const [comments, setComments] = useState();
+  const [editing, setEditing] = useState(false);
   const api = useApi();
   const { user } = useUser();
   const flash = useFlash();
@@ -58,6 +59,16 @@ function PostThread({ postId }) {
     }
   };
 
+  const savePost = async (values) => {
+    const { data, error } = await api.updatePost(post, values);
+    if (!error) {
+      setPost((current) => ({ ...data, comment_count: current.comment_count }));
+      setEditing(false);
+      flash('Post updated.', 'success');
+    }
+    return { error };
+  };
+
   const deletePost = async () => {
     if (!window.confirm('Delete this post and all of its comments?')) return;
     const { error } = await api.deletePost(post);
@@ -76,7 +87,15 @@ function PostThread({ postId }) {
       :
         <>
           <Link to="/" className="BackLink">&larr; All posts</Link>
-          <Post item={post} className="Card Post Post-full" canDelete={isAdmin} onDelete={deletePost} />
+          {editing ?
+            <Composer placeholder="Edit the post…" submitLabel="Save" autoFocus
+              initialBody={post.body} initialPaths={post.image_paths}
+              onSubmit={savePost} onCancel={() => setEditing(false)} />
+          :
+            <Post item={post} className="Card Post Post-full"
+              canEdit={isAdmin} onEdit={() => setEditing(true)}
+              canDelete={isAdmin} onDelete={deletePost} />
+          }
           <section className="Card Comments" aria-label="Comments">
             <h2 className="Comments-title">{commentLabel(post.comment_count)}</h2>
             {comments === undefined ?
@@ -93,7 +112,9 @@ function PostThread({ postId }) {
               )
             }
           </section>
-          {user ?
+          {user?.banned_at ?
+            <p className="Card JoinPrompt">You have been banned from commenting.</p>
+          : user ?
             <Composer placeholder="Add a comment…" submitLabel="Comment" onSubmit={addComment} />
           : user === null &&
             <p className="Card JoinPrompt">

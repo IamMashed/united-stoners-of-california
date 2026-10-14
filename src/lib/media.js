@@ -14,8 +14,9 @@ export function imageExtension(mimeType) {
 }
 
 // Returns an error message for the first invalid file (or too many files), else null.
-export function validateImages(files) {
-  if (files.length > MAX_IMAGES) {
+// `alreadyAttached` counts images kept from before (when editing).
+export function validateImages(files, alreadyAttached = 0) {
+  if (files.length + alreadyAttached > MAX_IMAGES) {
     return `You can attach up to ${MAX_IMAGES} images.`;
   }
   for (const file of files) {

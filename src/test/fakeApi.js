@@ -2,11 +2,11 @@ import { vi } from 'vitest';
 
 // KUSH is the superuser (writes posts); HASH is a regular member.
 export const KUSH = {
-  id: 'u-kush', username: 'kushking', about_me: 'Living soil or bust.', is_admin: true,
+  id: 'u-kush', username: 'kushking', about_me: 'Living soil or bust.', is_admin: true, banned_at: null,
   avatar_url: null, created_at: '2026-01-01T00:00:00Z', last_seen: '2026-10-13T00:00:00Z',
 };
 export const HASH = {
-  id: 'u-hash', username: 'hashqueen', about_me: '', avatar_url: null, is_admin: false,
+  id: 'u-hash', username: 'hashqueen', about_me: '', avatar_url: null, is_admin: false, banned_at: null,
   created_at: '2026-01-01T00:00:00Z', last_seen: '2026-10-13T00:00:00Z',
 };
 
@@ -81,6 +81,13 @@ export function makeFakeApi({
       data: makePost(999, loggedInAs, body, 0, files.map((f) => `${loggedInAs.id}/${f.name}`)),
       error: null,
     })),
+    updatePost: vi.fn(async (post, { body, keepPaths, files }) => ({
+      data: {
+        ...post, body, updated_at: '2026-10-14T00:00:00Z',
+        image_paths: [...keepPaths, ...files.map((f) => `${loggedInAs.id}/${f.name}`)],
+      },
+      error: null,
+    })),
     deletePost: vi.fn(async () => ({ data: null, error: null })),
     listComments: vi.fn(async (postId) => ({ data: comments.filter((c) => c.post_id === postId), error: null })),
     listCommentsByUser: vi.fn(async (userId) => ({
@@ -91,6 +98,7 @@ export function makeFakeApi({
       error: null,
     })),
     deleteComment: vi.fn(async () => ({ data: null, error: null })),
+    setBanned: vi.fn(async (userId, banned) => ({ data: banned ? '2026-10-14T00:00:00Z' : null, error: null })),
     mediaUrl: (path) => `https://media.test/${path}`,
   };
 }
