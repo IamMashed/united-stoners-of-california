@@ -33,9 +33,9 @@ const PAGES = [
     await page.getByRole('button', { name: 'Edit' }).first().click();
   }],
   ['profile-member-as-admin', '/user/hashqueen', 'kushking@example.com'],
-  ['contact-visitor', '/contact', null],
-  ['contact-errors', '/contact', null, async (page) => {
-    await page.getByRole('button', { name: 'Send' }).click();
+  ['contact-member', '/contact', 'hashqueen@example.com'],
+  ['contact-errors', '/contact', 'hashqueen@example.com', async (page) => {
+    await page.getByLabel('Email', { exact: true }).fill(''); await page.getByRole('button', { name: 'Send' }).click();
   }],
 ];
 

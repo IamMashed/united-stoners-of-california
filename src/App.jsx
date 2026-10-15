@@ -31,7 +31,6 @@ export default function App({ supabase, api }) {
                 <Route path="/" element={<HomePage />} />
                 <Route path="/post/:id" element={<PostPage />} />
                 <Route path="/user/:username" element={<UserPage />} />
-                <Route path="/contact" element={<ContactPage />} />
 
                 {/* Logged-out only */}
                 <Route path="/login" element={<PublicRoute><LoginPage /></PublicRoute>} />
@@ -43,6 +42,7 @@ export default function App({ supabase, api }) {
                 {/* Logged-in only */}
                 <Route path="/edit" element={<PrivateRoute><EditUserPage /></PrivateRoute>} />
                 <Route path="/password" element={<PrivateRoute><ChangePasswordPage /></PrivateRoute>} />
+                <Route path="/contact" element={<PrivateRoute><ContactPage /></PrivateRoute>} />
 
                 <Route path="*" element={<Navigate to="/" />} />
               </Routes>

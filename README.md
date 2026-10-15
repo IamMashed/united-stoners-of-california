@@ -21,8 +21,8 @@ strains, growers, dispensaries, grow and extraction tips.
   media, can delete any comment, and can ban members from commenting (and unban them) from
   their profile page. Banned members can still read and delete their own comments.
 
-- **Contact us** (footer and account menu): visitors leave an email and/or phone number and a
-  message. The Cloudflare Worker (`worker/contact.js`) rate-limits it (3/min per IP), stores it in
+- **Contact us** (footer and account menu, shown to logged-in members only):
+  members leave an email and/or phone number and a message. The Cloudflare Worker (`worker/contact.js`) rate-limits it (3/min per IP), stores it in
   `contact_messages` (readable only by the superuser) and emails it to the owner via Resend.
   Until `RESEND_API_KEY` is set, messages are stored but not emailed.
 

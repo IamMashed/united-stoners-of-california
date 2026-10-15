@@ -15,7 +15,9 @@ const ENV = {
 };
 
 // Fake Supabase + Resend. Records every request; `users` maps access tokens to auth users.
-function fakeBackend({ users = {}, insertStatus = 201, emailStatus = 200 } = {}) {
+const MEMBER = { 'Bearer good-token': { id: 'u-hash', email: 'hash@example.com' } };
+
+function fakeBackend({ users = MEMBER, insertStatus = 201, emailStatus = 200 } = {}) {
   const calls = [];
   const rows = [];
   const fetchImpl = async (url, init = {}) => {
@@ -50,7 +52,10 @@ function fakeBackend({ users = {}, insertStatus = 201, emailStatus = 200 } = {})
 function post(body, headers = {}) {
   return new Request('https://unitedstoners.club/api/contact', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', Origin: 'https://unitedstoners.club', ...headers },
+    headers: {
+      'Content-Type': 'application/json', Origin: 'https://unitedstoners.club',
+      Authorization: 'Bearer good-token', ...headers,
+    },
     body: JSON.stringify(body),
   });
 }
@@ -63,7 +68,7 @@ describe('POST /api/contact', () => {
 
     expect(response.status).toBe(200);
     expect(backend.rows).toEqual([expect.objectContaining({
-      email: 'fan@example.com', phone: null, message: 'Love the rosin guide!', user_id: null,
+      email: 'fan@example.com', phone: null, message: 'Love the rosin guide!', user_id: 'u-hash',
     })]);
     const [email] = backend.emails();
     expect(email.body).toMatchObject({
@@ -71,7 +76,7 @@ describe('POST /api/contact', () => {
       subject: 'Contact form: fan@example.com',
     });
     expect(email.body.text).toContain('Love the rosin guide!');
-    expect(email.body.text).toContain('Member: not logged in');
+    expect(email.body.text).toContain('Member: hashqueen (hash@example.com)');
     expect(backend.rows[0].emailed_at).not.toBeNull();
     // The secret key goes to Supabase only, never to Resend.
     expect(email.headers.apikey).toBeUndefined();
@@ -86,22 +91,24 @@ describe('POST /api/contact', () => {
     expect(email.body.subject).toBe('Contact form: +1 (415) 555-0100');
   });
 
-  test('tags the message with the logged-in member when the token is valid', async () => {
-    const backend = fakeBackend({ users: { 'Bearer good-token': { id: 'u-hash', email: 'hash@example.com' } } });
-    await handleContact(post({ email: 'hash@example.com', message: 'hi' }, { Authorization: 'Bearer good-token' }),
-      ENV, backend.fetchImpl);
+  test('visitors who are not logged in are turned away and nothing is stored or sent', async () => {
+    const backend = fakeBackend();
+    const response = await handleContact(
+      post({ email: 'x@example.com', message: 'hi' }, { Authorization: '' }), ENV, backend.fetchImpl);
 
-    expect(backend.rows[0].user_id).toBe('u-hash');
-    expect(backend.emails()[0].body.text).toContain('Member: hashqueen (hash@example.com)');
+    expect(response.status).toBe(401);
+    expect(await response.json()).toEqual({ error: 'Log in to contact us.' });
+    expect(backend.rows).toHaveLength(0);
+    expect(backend.emails()).toHaveLength(0);
   });
 
-  test('an invalid token is ignored rather than trusted', async () => {
+  test('a forged or expired token is rejected rather than trusted', async () => {
     const backend = fakeBackend();
     const response = await handleContact(
       post({ email: 'x@example.com', message: 'hi' }, { Authorization: 'Bearer forged' }), ENV, backend.fetchImpl);
 
-    expect(response.status).toBe(200);
-    expect(backend.rows[0].user_id).toBeNull();
+    expect(response.status).toBe(401);
+    expect(backend.rows).toHaveLength(0);
   });
 
   test('rejects a message with no way to reply, without storing anything', async () => {

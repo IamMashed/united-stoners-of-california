@@ -266,26 +266,48 @@ describe('banning', () => {
 });
 
 describe('contact us', () => {
-  test('visitors reach the form from the footer and can send a message', async () => {
-    const api = makeFakeApi({ posts: POSTS });
-    renderAt('/', api);
+  test('visitors see no Contact us link', async () => {
+    renderAt('/', makeFakeApi({ posts: POSTS }));
 
-    await userEvent.click(await screen.findByRole('link', { name: 'Contact us' }));
-    await userEvent.type(screen.getByLabelText('Email'), 'fan@example.com');
-    await userEvent.type(screen.getByLabelText('Message'), 'Please do a rosin press guide.');
+    await screen.findByText('Rosin at 180F');
+    expect(screen.queryByRole('link', { name: 'Contact us' })).toBeNull();
+  });
+
+  test('visitors who type the address are sent to log in', async () => {
+    renderAt('/contact', makeFakeApi());
+
+    expect(await screen.findByRole('heading', { name: 'Login' })).toBeInTheDocument();
+  });
+
+  test('members see the footer link and get their email filled in', async () => {
+    renderAt('/', makeFakeApi({ loggedInAs: HASH, posts: POSTS }));
+
+    const footer = (await screen.findByText(/Educational content/)).closest('footer');
+    await userEvent.click(await within(footer).findByRole('link', { name: 'Contact us' }));
+
+    expect(await screen.findByRole('heading', { name: 'Contact us' })).toBeInTheDocument();
+    expect(screen.getByLabelText('Email')).toHaveValue('hashqueen@example.com');
+  });
+
+  test('a member sends a message and sees a confirmation', async () => {
+    const api = makeFakeApi({ loggedInAs: HASH });
+    renderAt('/contact', api);
+
+    await userEvent.type(await screen.findByLabelText('Message'), 'Please do a rosin press guide.');
     await userEvent.click(screen.getByRole('button', { name: 'Send' }));
 
     expect(await screen.findByRole('heading', { name: 'Message sent' })).toBeInTheDocument();
     expect(api.sendContactMessage).toHaveBeenCalledWith(expect.objectContaining({
-      email: 'fan@example.com', phone: null, message: 'Please do a rosin press guide.',
+      email: 'hashqueen@example.com', phone: null, message: 'Please do a rosin press guide.',
     }));
   });
 
-  test('a phone number alone is enough to reach out', async () => {
-    const api = makeFakeApi();
+  test('a member can leave only a phone number', async () => {
+    const api = makeFakeApi({ loggedInAs: HASH });
     renderAt('/contact', api);
 
-    await userEvent.type(await screen.findByLabelText(/^Phone/), '+1 415 555 0100');
+    await userEvent.clear(await screen.findByLabelText('Email'));
+    await userEvent.type(screen.getByLabelText(/^Phone/), '+1 415 555 0100');
     await userEvent.type(screen.getByLabelText('Message'), 'Call me about a collab');
     await userEvent.click(screen.getByRole('button', { name: 'Send' }));
 
@@ -296,35 +318,35 @@ describe('contact us', () => {
   });
 
   test('without an email or phone the message is not sent', async () => {
-    const api = makeFakeApi();
+    const api = makeFakeApi({ loggedInAs: HASH });
     renderAt('/contact', api);
 
-    await userEvent.type(await screen.findByLabelText('Message'), 'hello?');
+    await userEvent.clear(await screen.findByLabelText('Email'));
+    await userEvent.type(screen.getByLabelText('Message'), 'hello?');
     await userEvent.click(screen.getByRole('button', { name: 'Send' }));
 
     expect(await screen.findByText(/Enter an email address or a phone number/)).toBeInTheDocument();
     expect(api.sendContactMessage).not.toHaveBeenCalled();
   });
 
-  test('logged-in members get their email filled in and a menu link', async () => {
+  test('members also find it in the account menu', async () => {
     renderAt('/', makeFakeApi({ loggedInAs: HASH, posts: POSTS }));
 
     await userEvent.click(await screen.findByRole('button', { name: 'hashqueen' }));
     const menu = (await screen.findByRole('link', { name: 'Edit profile' })).closest('.dropdown-menu');
     await userEvent.click(within(menu).getByRole('link', { name: 'Contact us' }));
 
-    expect(await screen.findByLabelText('Email')).toHaveValue('hashqueen@example.com');
+    expect(await screen.findByRole('heading', { name: 'Contact us' })).toBeInTheDocument();
   });
 
   test('a server error is shown and the form keeps what was typed', async () => {
-    const api = makeFakeApi();
+    const api = makeFakeApi({ loggedInAs: HASH });
     api.sendContactMessage.mockResolvedValue({
       data: null, error: { status: 429, message: 'Too many messages. Please wait a minute and try again.' },
     });
     renderAt('/contact', api);
 
-    await userEvent.type(await screen.findByLabelText('Email'), 'fan@example.com');
-    await userEvent.type(screen.getByLabelText('Message'), 'Second try');
+    await userEvent.type(await screen.findByLabelText('Message'), 'Second try');
     await userEvent.click(screen.getByRole('button', { name: 'Send' }));
 
     expect(await screen.findByText(/Too many messages/)).toBeInTheDocument();

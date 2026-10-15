@@ -1,5 +1,5 @@
-// POST /api/contact: validates a contact form submission, stores it in
-// public.contact_messages and emails it to the site owner via Resend.
+// POST /api/contact: validates a contact form submission from a logged-in member,
+// stores it in public.contact_messages and emails it to the site owner via Resend.
 //
 // Env (see wrangler.jsonc and `npm run db -- worker-secrets <env>`):
 //   SUPABASE_URL          project URL (var)
@@ -54,11 +54,15 @@ export async function handleContact(request, env, fetchImpl = fetch) {
     headers: { apikey: env.SUPABASE_SECRET_KEY, 'Content-Type': 'application/json', ...init.headers },
   });
 
+  // Members only: the access token must belong to a real account.
   const sender = await senderProfile(request, supabase);
+  if (!sender) {
+    return json({ error: 'Log in to contact us.' }, 401);
+  }
   const insert = await supabase('/rest/v1/contact_messages', {
     method: 'POST',
     headers: { Prefer: 'return=representation' },
-    body: JSON.stringify({ ...values, user_id: sender?.id ?? null }),
+    body: JSON.stringify({ ...values, user_id: sender.id }),
   });
   if (!insert.ok) {
     console.error('contact: insert failed', insert.status, await insert.text());
@@ -105,7 +109,7 @@ export function notificationEmail(row, sender, env) {
     '---',
     `Email: ${row.email || '-'}`,
     `Phone: ${row.phone || '-'}`,
-    sender ? `Member: ${sender.username || '?'} (${sender.email})` : 'Member: not logged in',
+    `Member: ${sender.username || '?'} (${sender.email})`,
     `Sent: ${row.created_at}`,
     `Message #${row.id}`,
   ];

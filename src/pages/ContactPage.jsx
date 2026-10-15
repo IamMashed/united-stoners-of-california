@@ -7,8 +7,8 @@ import { useApi } from '../contexts/ApiProvider';
 import { useUser } from '../contexts/UserProvider';
 import { MAX_MESSAGE, validateContact } from '../lib/contact';
 
-// "Contact us": email and/or phone plus a message, delivered to the site owner by the
-// Worker (worker/contact.js). Logged-in members get their email prefilled.
+// "Contact us" (members only, see App.jsx): email and/or phone plus a message, delivered
+// to the site owner by the Worker (worker/contact.js). The member's email is prefilled.
 export default function ContactPage() {
   const api = useApi();
   const { user } = useUser();

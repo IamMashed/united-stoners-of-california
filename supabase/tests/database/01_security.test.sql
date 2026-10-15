@@ -2,7 +2,7 @@
 -- Verifies the signup trigger, RLS policies and column grants that protect the
 -- PostgREST API. Everything runs in a transaction and is rolled back.
 begin;
-select plan(54);
+select plan(55);
 
 -------------------------------------------------------------------------------
 -- Fixtures (as postgres). The auth trigger creates the profiles.
@@ -221,12 +221,14 @@ reset role;
 -------------------------------------------------------------------------------
 -- Contact messages: written only by the Worker (secret key), read by the admin
 -------------------------------------------------------------------------------
-insert into public.contact_messages (email, message) values ('fan@test.local', 'hello there');
+insert into public.contact_messages (user_id, email, message) values ('bbbbbbbb-0000-0000-0000-000000000002', 'fan@test.local', 'hello there');
 
-select throws_ok($$insert into public.contact_messages (message) values ('no way to reply')$$,
+select throws_ok($$insert into public.contact_messages (user_id, message) values ('bbbbbbbb-0000-0000-0000-000000000002', 'no way to reply')$$,
   '23514', null, 'contact messages need an email or a phone');
-select throws_ok($$insert into public.contact_messages (phone, message) values ('call me', 'x')$$,
+select throws_ok($$insert into public.contact_messages (user_id, phone, message) values ('bbbbbbbb-0000-0000-0000-000000000002', 'call me', 'x')$$,
   '23514', null, 'contact phone numbers are format-checked');
+select throws_ok($$insert into public.contact_messages (email, message) values ('a@b.co', 'anonymous')$$,
+  '23502', null, 'every contact message belongs to a member');
 
 set local role anon;
 select set_config('request.jwt.claims', '{"role":"anon"}', true);
