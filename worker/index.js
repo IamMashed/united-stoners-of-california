@@ -3,9 +3,11 @@
 //  - sends www.unitedstoners.club to the bare domain, so every page has a single
 //    canonical URL (and auth redirects match one origin);
 //  - handles the contact form API (POST /api/contact);
-//  - sends "new post" emails and handles unsubscribe links (worker/notify.js).
+//  - sends "new post" emails and handles unsubscribe links (worker/notify.js);
+//  - once a day, deletes photos nothing uses anymore (worker/cleanup.js).
 import { handleContact } from './contact.js';
 import { handleNotifyNewPost, handleUnsubscribe } from './notify.js';
+import { cleanupOrphanedMedia } from './cleanup.js';
 
 const CANONICAL_HOST = 'unitedstoners.club';
 
@@ -26,5 +28,10 @@ export default {
       return handleUnsubscribe(request, env);
     }
     return env.ASSETS.fetch(request);
+  },
+
+  // Cron trigger (see "triggers" in wrangler.jsonc).
+  async scheduled(event, env, ctx) {
+    ctx.waitUntil(cleanupOrphanedMedia(env));
   },
 };

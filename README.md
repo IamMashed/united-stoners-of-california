@@ -31,6 +31,10 @@ strains, growers, dispensaries, grow and extraction tips.
   is announced once (`posts.notified_at`). Emails carry a one-click unsubscribe link, and
   members can switch them off under Edit profile (`email_preferences`).
 
+- **Photo cleanup**: deleting a post deletes its comments; photos nothing references anymore
+  (comment photos of a deleted post, removed or failed uploads) are deleted by a daily Worker
+  cron (`worker/cleanup.js`, 11:17 UTC) after a one-day grace period.
+
 All of this is enforced in the database (RLS + column grants + storage policies), not only in
 the UI: a member calling the API directly still cannot create a post.
 

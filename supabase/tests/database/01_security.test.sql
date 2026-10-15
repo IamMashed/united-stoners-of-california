@@ -2,7 +2,7 @@
 -- Verifies the signup trigger, RLS policies and column grants that protect the
 -- PostgREST API. Everything runs in a transaction and is rolled back.
 begin;
-select plan(65);
+select plan(68);
 
 -------------------------------------------------------------------------------
 -- Fixtures (as postgres). The auth trigger creates the profiles.
@@ -306,6 +306,28 @@ select results_eq(
     where username in ('bob', 'carol', 'alice') order by username$$,
   $$values ('carol'::text)$$,
   'recipients are confirmed, opted-in members other than the author');
+
+-------------------------------------------------------------------------------
+-- Orphaned photo cleanup (Worker cron with the secret key only)
+-------------------------------------------------------------------------------
+insert into storage.objects (bucket_id, name, created_at)
+  values ('media', 'bbbbbbbb-0000-0000-0000-000000000002/stray.png', now() - interval '2 days'),
+         ('media', 'bbbbbbbb-0000-0000-0000-000000000002/fresh.png', now());
+select results_eq(
+  $$select o from public.orphaned_media() o where o like 'bbbbbbbb-0000-0000-0000-000000000002/%'$$,
+  $$values ('bbbbbbbb-0000-0000-0000-000000000002/stray.png'::text)$$,
+  'old unused photos are listed for cleanup, fresh uploads are not');
+select is_empty(
+  $$select * from public.orphaned_media(interval '0 seconds') o
+    where o in (select unnest(image_paths) from public.posts union all select unnest(image_paths) from public.comments)$$,
+  'photos used by a post or comment are never listed');
+
+set local role authenticated;
+select set_config('request.jwt.claims',
+  '{"sub":"aaaaaaaa-0000-0000-0000-000000000001","role":"authenticated"}', true);
+select throws_ok($$select * from public.orphaned_media()$$,
+  '42501', null, 'not even admins can list orphaned photos from the browser');
+reset role;
 
 -------------------------------------------------------------------------------
 -- Cascades
