@@ -179,6 +179,23 @@ describe('POST /api/contact', () => {
     expect(backend.emails()).toHaveLength(0);
   });
 
+  test('members over the daily message limit are told to come back tomorrow', async () => {
+    const backend = fakeBackend({ insertStatus: 429 });
+    const response = await handleContact(post({ email: 'a@b.co', message: 'hi' }), ENV, backend.fetchImpl);
+
+    expect(response.status).toBe(429);
+    expect((await response.json()).error).toMatch(/tomorrow/);
+    expect(backend.emails()).toHaveLength(0);
+  });
+
+  test('a malformed Origin header is refused', async () => {
+    const backend = fakeBackend();
+    const response = await handleContact(post({ email: 'a@b.co', message: 'hi' }, { Origin: 'null' }), ENV, backend.fetchImpl);
+
+    expect(response.status).toBe(403);
+    expect(backend.rows).toHaveLength(0);
+  });
+
   test('only POST is allowed', async () => {
     const response = await handleContact(new Request('https://unitedstoners.club/api/contact'), ENV, fakeBackend().fetchImpl);
     expect(response.status).toBe(405);

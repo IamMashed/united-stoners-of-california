@@ -107,8 +107,9 @@ describe('uploadErrorMessage', () => {
     }
   });
 
-  test('explains size errors and keeps other messages', () => {
+  test('explains size errors and upload limits, and keeps other messages', () => {
     expect(uploadErrorMessage({ message: 'Payload too large' })).toMatch(/too large/);
-    expect(uploadErrorMessage({ message: 'new row violates row-level security policy' })).toMatch(/row-level/);
+    expect(uploadErrorMessage({ message: 'new row violates row-level security policy' })).toMatch(/upload limit reached/i);
+    expect(uploadErrorMessage({ message: 'Bucket not found' })).toBe('Bucket not found');
   });
 });

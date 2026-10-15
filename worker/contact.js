@@ -9,6 +9,7 @@
 //   CONTACT_FROM          sender address on a Resend-verified domain (var)
 //   CONTACT_LIMITER       rate limit binding, keyed by client IP (optional)
 import { validateContact } from '../src/lib/contact.js';
+import { isForeignOrigin } from './security.js';
 
 const json = (body, status = 200) => Response.json(body, { status });
 
@@ -17,8 +18,7 @@ export async function handleContact(request, env, fetchImpl = fetch) {
     return json({ error: 'Method not allowed' }, 405);
   }
   // Only our own pages may post here (blocks other sites from using the form).
-  const origin = request.headers.get('Origin');
-  if (origin && new URL(origin).host !== new URL(request.url).host) {
+  if (isForeignOrigin(request)) {
     return json({ error: 'Forbidden' }, 403);
   }
   if (env.CONTACT_LIMITER) {
@@ -64,6 +64,9 @@ export async function handleContact(request, env, fetchImpl = fetch) {
     headers: { Prefer: 'return=representation' },
     body: JSON.stringify({ ...values, user_id: sender.id }),
   });
+  if (insert.status === 429) {
+    return json({ error: 'You have sent a lot of messages today. Please try again tomorrow.' }, 429);
+  }
   if (!insert.ok) {
     console.error('contact: insert failed', insert.status, await insert.text());
     return json({ error: 'Could not send your message. Please try again later.' }, 500);

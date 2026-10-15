@@ -24,6 +24,10 @@ export function uploadErrorMessage(err) {
   if (/payload too large|413|exceeded the maximum/i.test(text)) {
     return 'That video is too large to upload. Try a shorter clip.';
   }
+  // Storage policies refuse uploads past the per-member limits (see the rate limits migration).
+  if (/row-level security/i.test(text)) {
+    return 'Upload limit reached (30 files an hour, 300 MB in total). Please try again later or delete old uploads.';
+  }
   return text || 'The upload failed. Please try again.';
 }
 

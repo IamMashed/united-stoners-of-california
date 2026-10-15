@@ -1,8 +1,4 @@
-/*
-  X-Content-Type-Options: nosniff
-  X-Frame-Options: DENY
-  Referrer-Policy: strict-origin-when-cross-origin
-  Permissions-Policy: geolocation=(), microphone=(), payment=()
-
+# Security headers (CSP, HSTS, X-Frame-Options, ...) are set by the Worker for every
+# response, see worker/security.js.
 /assets/*
   Cache-Control: public, max-age=31536000, immutable

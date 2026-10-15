@@ -40,6 +40,17 @@ strains, growers, dispensaries, grow and extraction tips.
   H.264 MP4 (~20 MB/min, `src/lib/video.js` with mediabunny/WebCodecs) and the file must end
   up under 50 MB (the Supabase Free plan's per-file cap). Stored in the public `videos` bucket.
 
+- **Rate limits** (anti-spam / DoS), enforced in the database so the API can't bypass them;
+  admins are exempt:
+  - comments: 5 a minute, 30 an hour, 100 a day (accounts younger than a day: 3 / 10 / 20);
+    the same text twice within 10 minutes is refused; deleting comments doesn't reset the count;
+  - uploads: 30 files an hour and 300 MB stored per member;
+  - contact messages: 5 per member per day, plus 3 a minute per IP in the Worker;
+  - every `/api/*` route: 30 requests a minute per IP (Worker rate-limit binding);
+  - sign-up, login and auth emails: Supabase Auth's built-in per-IP limits.
+- **Security headers** on every page (worker/security.js): CSP (own scripts only), HSTS,
+  X-Frame-Options, nosniff, Referrer-Policy, Permissions-Policy.
+
 All of this is enforced in the database (RLS + column grants + storage policies), not only in
 the UI: a member calling the API directly still cannot create a post.
 

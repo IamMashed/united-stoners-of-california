@@ -2,7 +2,7 @@
 -- Verifies the signup trigger, RLS policies and column grants that protect the
 -- PostgREST API. Everything runs in a transaction and is rolled back.
 begin;
-select plan(73);
+select plan(87);
 
 -------------------------------------------------------------------------------
 -- Fixtures (as postgres). The auth trigger creates the profiles.
@@ -20,6 +20,9 @@ insert into auth.users (id, email, raw_user_meta_data) values
 
 update public.profiles set is_admin = false where is_admin;  -- e.g. the dev seed admin
 update public.profiles set is_admin = true where id = 'aaaaaaaa-0000-0000-0000-000000000001';
+-- Established members (new accounts get tighter comment limits, tested below).
+update public.profiles set created_at = now() - interval '30 days'
+  where id in ('bbbbbbbb-0000-0000-0000-000000000002', 'cccccccc-0000-0000-0000-000000000003');
 
 insert into public.posts (author_id, body) values
   ('aaaaaaaa-0000-0000-0000-000000000001', 'admin post');
@@ -349,6 +352,91 @@ select set_config('request.jwt.claims',
 select throws_ok($$select * from public.orphaned_media()$$,
   '42501', null, 'not even admins can list orphaned photos from the browser');
 reset role;
+
+-------------------------------------------------------------------------------
+-- Rate limits (frank = a day-old account, grace = an established member)
+-------------------------------------------------------------------------------
+insert into auth.users (id, email, raw_user_meta_data) values
+  ('ffffffff-0000-0000-0000-000000000006', 'frank@test.local', '{"username":"frank"}'),
+  ('99999999-0000-0000-0000-000000000009', 'grace@test.local', '{"username":"grace"}');
+update public.profiles set created_at = now() - interval '30 days' where id = '99999999-0000-0000-0000-000000000009';
+
+set local role authenticated;
+select set_config('request.jwt.claims',
+  '{"sub":"ffffffff-0000-0000-0000-000000000006","role":"authenticated"}', true);
+select lives_ok(
+  $$insert into public.comments (post_id, body) select id, 'frank ' || n from public.posts, generate_series(1, 3) n
+    where body = 'admin post'$$,
+  'new members can post a few comments in a row');
+select throws_ok(
+  $$insert into public.comments (post_id, body) select id, 'frank 4' from public.posts where body = 'admin post'$$,
+  'PT429', null, 'new members are limited to 3 comments a minute');
+delete from public.comments where author_id = 'ffffffff-0000-0000-0000-000000000006';
+select throws_ok(
+  $$insert into public.comments (post_id, body) select id, 'frank 5' from public.posts where body = 'admin post'$$,
+  'PT429', null, 'deleting comments does not reset the limit');
+select throws_ok($$select public.take_rate_limit('ffffffff-0000-0000-0000-000000000006', 'comment', '{}')$$,
+  '42501', null, 'members cannot write to the rate limit log');
+select throws_ok($$select * from public.rate_limit_events$$,
+  '42501', null, 'members cannot read the rate limit log');
+
+select set_config('request.jwt.claims',
+  '{"sub":"99999999-0000-0000-0000-000000000009","role":"authenticated"}', true);
+select lives_ok(
+  $$insert into public.comments (post_id, body) select id, 'grace ' || n from public.posts, generate_series(1, 5) n
+    where body = 'admin post'$$,
+  'established members can post 5 comments a minute');
+select throws_ok(
+  $$insert into public.comments (post_id, body) select id, 'grace 6' from public.posts where body = 'admin post'$$,
+  'PT429', null, 'established members are limited to 5 comments a minute');
+reset role;
+delete from public.rate_limit_events where user_id = '99999999-0000-0000-0000-000000000009';
+
+set local role authenticated;
+select set_config('request.jwt.claims',
+  '{"sub":"99999999-0000-0000-0000-000000000009","role":"authenticated"}', true);
+select throws_ok(
+  $$insert into public.comments (post_id, body) select id, '  GRACE 1 ' from public.posts where body = 'admin post'$$,
+  'PT429', null, 'the same comment twice within 10 minutes is refused');
+
+select set_config('request.jwt.claims',
+  '{"sub":"aaaaaaaa-0000-0000-0000-000000000001","role":"authenticated"}', true);
+select lives_ok(
+  $$insert into public.comments (post_id, body) select id, 'admin ' || n from public.posts, generate_series(1, 12) n
+    where body = 'admin post'$$,
+  'admins are not rate limited');
+reset role;
+
+insert into storage.objects (bucket_id, name, created_at)
+  select 'media', 'ffffffff-0000-0000-0000-000000000006/' || n || '.jpg', now() from generate_series(1, 30) n;
+insert into storage.objects (bucket_id, name, created_at, metadata)
+  values ('videos', '99999999-0000-0000-0000-000000000009/big.mp4', now() - interval '2 days', '{"size": 314572800}');
+set local role authenticated;
+select set_config('request.jwt.claims',
+  '{"sub":"ffffffff-0000-0000-0000-000000000006","role":"authenticated"}', true);
+select throws_ok(
+  $$insert into storage.objects (bucket_id, name) values ('media', 'ffffffff-0000-0000-0000-000000000006/31.jpg')$$,
+  '42501', null, 'members can upload at most 30 files an hour');
+select set_config('request.jwt.claims',
+  '{"sub":"99999999-0000-0000-0000-000000000009","role":"authenticated"}', true);
+select throws_ok(
+  $$insert into storage.objects (bucket_id, name) values ('media', '99999999-0000-0000-0000-000000000009/one.jpg')$$,
+  '42501', null, 'members can store at most 300 MB');
+select set_config('request.jwt.claims',
+  '{"sub":"cccccccc-0000-0000-0000-000000000003","role":"authenticated"}', true);
+select lives_ok(
+  $$insert into storage.objects (bucket_id, name) values ('media', 'cccccccc-0000-0000-0000-000000000003/ok.jpg')$$,
+  'members under the limits can upload');
+reset role;
+
+select lives_ok(
+  $$insert into public.contact_messages (user_id, message, email)
+    select 'cccccccc-0000-0000-0000-000000000003', 'msg ' || n, 'c@test.local' from generate_series(1, 5) n$$,
+  'members can send 5 contact messages a day');
+select throws_ok(
+  $$insert into public.contact_messages (user_id, message, email)
+    values ('cccccccc-0000-0000-0000-000000000003', 'msg 6', 'c@test.local')$$,
+  'PT429', null, 'members are limited to 5 contact messages a day');
 
 -------------------------------------------------------------------------------
 -- Cascades

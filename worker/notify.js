@@ -8,6 +8,7 @@
 // Env: SUPABASE_URL, SUPABASE_SECRET_KEY, RESEND_API_KEY, CONTACT_FROM (sender), SITE_URL.
 import { stripPhotoMarkers } from '../src/lib/layout.js';
 import { videoEmbed } from '../src/lib/embeds.js';
+import { isForeignOrigin } from './security.js';
 
 const json = (body, status = 200) => Response.json(body, { status });
 const BATCH = 100;  // Resend batch API limit
@@ -22,8 +23,7 @@ function supabaseClient(env, fetchImpl) {
 
 export async function handleNotifyNewPost(request, env, fetchImpl = fetch) {
   if (request.method !== 'POST') return json({ error: 'Method not allowed' }, 405);
-  const origin = request.headers.get('Origin');
-  if (origin && new URL(origin).host !== new URL(request.url).host) return json({ error: 'Forbidden' }, 403);
+  if (isForeignOrigin(request)) return json({ error: 'Forbidden' }, 403);
   if (!env.SUPABASE_URL || !env.SUPABASE_SECRET_KEY || !env.RESEND_API_KEY) {
     return json({ error: 'Notifications are not configured.' }, 503);
   }

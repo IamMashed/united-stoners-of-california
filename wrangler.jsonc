@@ -24,9 +24,10 @@
   },
   // Daily at 11:17 UTC (~4 AM in California): delete photos nothing uses anymore.
   "triggers": { "crons": ["17 11 * * *"] },
-  // At most 3 contact messages per minute per IP.
+  // Per IP: at most 3 contact messages and 30 API calls per minute.
   "ratelimits": [
-    { "name": "CONTACT_LIMITER", "namespace_id": "1001", "simple": { "limit": 3, "period": 60 } }
+    { "name": "CONTACT_LIMITER", "namespace_id": "1001", "simple": { "limit": 3, "period": 60 } },
+    { "name": "API_LIMITER", "namespace_id": "1002", "simple": { "limit": 30, "period": 60 } }
   ],
   "assets": {
     "directory": "./dist",
