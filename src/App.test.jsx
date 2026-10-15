@@ -97,7 +97,7 @@ describe('posting is superuser-only', () => {
     renderAt('/', api);
 
     await screen.findByText('Rosin at 180F');
-    await userEvent.type(screen.getByPlaceholderText(/Share a strain/), 'Harvest day');
+    await userEvent.type(await screen.findByPlaceholderText(/Share a strain/), 'Harvest day');
     const photo = new File(['x'], 'harvest.jpg', { type: 'image/jpeg' });
     await userEvent.upload(screen.getByTestId('image-input'), photo);
     await userEvent.click(screen.getByRole('button', { name: 'Post' }));
@@ -204,7 +204,7 @@ describe('deleting comments', () => {
     renderAt('/post/1', api);
 
     const mine = (await screen.findByText('What micron bags?')).closest('.Comment');
-    await userEvent.click(within(mine).getByRole('button', { name: 'Delete' }));
+    await userEvent.click(await within(mine).findByRole('button', { name: 'Delete' }));
 
     expect(screen.queryByText('What micron bags?')).toBeNull();
     expect(screen.getByText('1 comment')).toBeInTheDocument();
@@ -215,7 +215,7 @@ describe('deleting comments', () => {
     renderAt('/user/hashqueen', makeFakeApi({ loggedInAs: HASH, posts: POSTS, comments: COMMENTS }));
 
     const mine = (await screen.findByText('What micron bags?')).closest('.Comment');
-    await userEvent.click(within(mine).getByRole('button', { name: 'Delete' }));
+    await userEvent.click(await within(mine).findByRole('button', { name: 'Delete' }));
 
     expect(await screen.findByText('No comments yet.')).toBeInTheDocument();
   });
@@ -226,7 +226,7 @@ describe('deleting comments', () => {
     renderAt('/post/1', api);
 
     const theirs = (await screen.findByText('What micron bags?')).closest('.Comment');
-    await userEvent.click(within(theirs).getByRole('button', { name: 'Delete' }));
+    await userEvent.click(await within(theirs).findByRole('button', { name: 'Delete' }));
 
     expect(screen.getByText('What micron bags?')).toBeInTheDocument();
     expect(api.deleteComment).not.toHaveBeenCalled();
@@ -262,6 +262,73 @@ describe('banning', () => {
     expect(screen.queryByRole('button', { name: 'Comment' })).toBeNull();
     const mine = screen.getByText('What micron bags?').closest('.Comment');
     expect(within(mine).getByRole('button', { name: 'Delete' })).toBeInTheDocument();
+  });
+});
+
+describe('contact us', () => {
+  test('visitors reach the form from the footer and can send a message', async () => {
+    const api = makeFakeApi({ posts: POSTS });
+    renderAt('/', api);
+
+    await userEvent.click(await screen.findByRole('link', { name: 'Contact us' }));
+    await userEvent.type(screen.getByLabelText('Email'), 'fan@example.com');
+    await userEvent.type(screen.getByLabelText('Message'), 'Please do a rosin press guide.');
+    await userEvent.click(screen.getByRole('button', { name: 'Send' }));
+
+    expect(await screen.findByRole('heading', { name: 'Message sent' })).toBeInTheDocument();
+    expect(api.sendContactMessage).toHaveBeenCalledWith(expect.objectContaining({
+      email: 'fan@example.com', phone: null, message: 'Please do a rosin press guide.',
+    }));
+  });
+
+  test('a phone number alone is enough to reach out', async () => {
+    const api = makeFakeApi();
+    renderAt('/contact', api);
+
+    await userEvent.type(await screen.findByLabelText(/^Phone/), '+1 415 555 0100');
+    await userEvent.type(screen.getByLabelText('Message'), 'Call me about a collab');
+    await userEvent.click(screen.getByRole('button', { name: 'Send' }));
+
+    expect(await screen.findByRole('heading', { name: 'Message sent' })).toBeInTheDocument();
+    expect(api.sendContactMessage).toHaveBeenCalledWith(expect.objectContaining({
+      email: null, phone: '+1 415 555 0100',
+    }));
+  });
+
+  test('without an email or phone the message is not sent', async () => {
+    const api = makeFakeApi();
+    renderAt('/contact', api);
+
+    await userEvent.type(await screen.findByLabelText('Message'), 'hello?');
+    await userEvent.click(screen.getByRole('button', { name: 'Send' }));
+
+    expect(await screen.findByText(/Enter an email address or a phone number/)).toBeInTheDocument();
+    expect(api.sendContactMessage).not.toHaveBeenCalled();
+  });
+
+  test('logged-in members get their email filled in and a menu link', async () => {
+    renderAt('/', makeFakeApi({ loggedInAs: HASH, posts: POSTS }));
+
+    await userEvent.click(await screen.findByRole('button', { name: 'hashqueen' }));
+    const menu = (await screen.findByRole('link', { name: 'Edit profile' })).closest('.dropdown-menu');
+    await userEvent.click(within(menu).getByRole('link', { name: 'Contact us' }));
+
+    expect(await screen.findByLabelText('Email')).toHaveValue('hashqueen@example.com');
+  });
+
+  test('a server error is shown and the form keeps what was typed', async () => {
+    const api = makeFakeApi();
+    api.sendContactMessage.mockResolvedValue({
+      data: null, error: { status: 429, message: 'Too many messages. Please wait a minute and try again.' },
+    });
+    renderAt('/contact', api);
+
+    await userEvent.type(await screen.findByLabelText('Email'), 'fan@example.com');
+    await userEvent.type(screen.getByLabelText('Message'), 'Second try');
+    await userEvent.click(screen.getByRole('button', { name: 'Send' }));
+
+    expect(await screen.findByText(/Too many messages/)).toBeInTheDocument();
+    expect(screen.getByLabelText('Message')).toHaveValue('Second try');
   });
 });
 

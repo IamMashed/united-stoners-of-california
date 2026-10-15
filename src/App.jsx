@@ -4,6 +4,7 @@ import FlashProvider from './contexts/FlashProvider';
 import ApiProvider from './contexts/ApiProvider';
 import UserProvider from './contexts/UserProvider';
 import Header from './components/Header';
+import Footer from './components/Footer';
 import PublicRoute from './components/PublicRoute';
 import PrivateRoute from './components/PrivateRoute';
 import HomePage from './pages/HomePage';
@@ -15,6 +16,7 @@ import LoginPage from './pages/LoginPage';
 import RegistrationPage from './pages/RegistrationPage';
 import ResetRequestPage from './pages/ResetRequestPage';
 import ResetPage from './pages/ResetPage';
+import ContactPage from './pages/ContactPage';
 
 export default function App({ supabase, api }) {
   return (
@@ -29,6 +31,7 @@ export default function App({ supabase, api }) {
                 <Route path="/" element={<HomePage />} />
                 <Route path="/post/:id" element={<PostPage />} />
                 <Route path="/user/:username" element={<UserPage />} />
+                <Route path="/contact" element={<ContactPage />} />
 
                 {/* Logged-out only */}
                 <Route path="/login" element={<PublicRoute><LoginPage /></PublicRoute>} />
@@ -43,6 +46,7 @@ export default function App({ supabase, api }) {
 
                 <Route path="*" element={<Navigate to="/" />} />
               </Routes>
+              <Footer />
             </UserProvider>
           </ApiProvider>
         </FlashProvider>

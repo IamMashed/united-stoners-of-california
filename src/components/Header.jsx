@@ -29,6 +29,7 @@ export default function Header() {
               {user.providers.includes('email') &&
                 <NavDropdown.Item as={NavLink} to="/password">Change password</NavDropdown.Item>
               }
+              <NavDropdown.Item as={NavLink} to="/contact">Contact us</NavDropdown.Item>
               <NavDropdown.Divider />
               <NavDropdown.Item onClick={logout}>Logout</NavDropdown.Item>
             </NavDropdown>

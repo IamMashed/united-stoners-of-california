@@ -33,6 +33,10 @@ const PAGES = [
     await page.getByRole('button', { name: 'Edit' }).first().click();
   }],
   ['profile-member-as-admin', '/user/hashqueen', 'kushking@example.com'],
+  ['contact-visitor', '/contact', null],
+  ['contact-errors', '/contact', null, async (page) => {
+    await page.getByRole('button', { name: 'Send' }).click();
+  }],
 ];
 
 const filters = process.argv.slice(2);

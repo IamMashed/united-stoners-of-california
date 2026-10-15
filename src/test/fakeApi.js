@@ -99,6 +99,7 @@ export function makeFakeApi({
     })),
     deleteComment: vi.fn(async () => ({ data: null, error: null })),
     setBanned: vi.fn(async (userId, banned) => ({ data: banned ? '2026-10-14T00:00:00Z' : null, error: null })),
+    sendContactMessage: vi.fn(async () => ({ data: { ok: true }, error: null })),
     mediaUrl: (path) => `https://media.test/${path}`,
   };
 }

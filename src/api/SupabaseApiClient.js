@@ -223,6 +223,36 @@ export default class SupabaseApiClient {
     return this.run(this.supabase.rpc('username_available', { name }));
   }
 
+  // ---- contact form -------------------------------------------------------
+
+  // Posts to the Worker (worker/contact.js), which stores and emails the message.
+  // Sends the access token when logged in so the message is tagged with the member.
+  async sendContactMessage({ email, phone, message, website }) {
+    const { data: { session } } = await this.supabase.auth.getSession();
+    let response;
+    try {
+      response = await fetch('/api/contact', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(session ? { Authorization: `Bearer ${session.access_token}` } : {}),
+        },
+        body: JSON.stringify({ email, phone, message, website }),
+      });
+    }
+    catch (err) {
+      return { data: null, error: { message: 'Could not reach the server. Check your connection.', cause: err } };
+    }
+    const body = await response.json().catch(() => ({}));
+    if (response.ok) {
+      return { data: body, error: null };
+    }
+    return {
+      data: null,
+      error: { status: response.status, message: body.error || 'Could not send your message.', fields: body.errors },
+    };
+  }
+
   async touchLastSeen() {
     return this.run(this.supabase.rpc('touch_last_seen'));
   }

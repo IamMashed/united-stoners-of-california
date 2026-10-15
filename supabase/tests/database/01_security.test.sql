@@ -2,7 +2,7 @@
 -- Verifies the signup trigger, RLS policies and column grants that protect the
 -- PostgREST API. Everything runs in a transaction and is rolled back.
 begin;
-select plan(47);
+select plan(54);
 
 -------------------------------------------------------------------------------
 -- Fixtures (as postgres). The auth trigger creates the profiles.
@@ -216,6 +216,39 @@ select lives_ok(
   $$insert into public.comments (post_id, body) select id, 'back again' from public.posts where body = 'admin post'$$,
   'unbanned members can comment again');
 
+reset role;
+
+-------------------------------------------------------------------------------
+-- Contact messages: written only by the Worker (secret key), read by the admin
+-------------------------------------------------------------------------------
+insert into public.contact_messages (email, message) values ('fan@test.local', 'hello there');
+
+select throws_ok($$insert into public.contact_messages (message) values ('no way to reply')$$,
+  '23514', null, 'contact messages need an email or a phone');
+select throws_ok($$insert into public.contact_messages (phone, message) values ('call me', 'x')$$,
+  '23514', null, 'contact phone numbers are format-checked');
+
+set local role anon;
+select set_config('request.jwt.claims', '{"role":"anon"}', true);
+select throws_ok($$insert into public.contact_messages (email, message) values ('a@b.co', 'spam')$$,
+  '42501', null, 'visitors cannot write contact messages directly (must go through the rate-limited Worker)');
+select throws_ok($$select * from public.contact_messages$$,
+  '42501', null, 'visitors cannot read contact messages');
+reset role;
+
+set local role authenticated;
+select set_config('request.jwt.claims',
+  '{"sub":"cccccccc-0000-0000-0000-000000000003","role":"authenticated"}', true);
+select throws_ok($$insert into public.contact_messages (email, message) values ('a@b.co', 'spam')$$,
+  '42501', null, 'members cannot write contact messages directly');
+select is_empty($$select * from public.contact_messages$$, 'members cannot read contact messages');
+reset role;
+
+set local role authenticated;
+select set_config('request.jwt.claims',
+  '{"sub":"aaaaaaaa-0000-0000-0000-000000000001","role":"authenticated"}', true);
+select results_eq($$select message from public.contact_messages where email = 'fan@test.local'$$,
+  $$values ('hello there')$$, 'the superuser can read contact messages');
 reset role;
 
 -------------------------------------------------------------------------------

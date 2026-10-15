@@ -21,6 +21,11 @@ strains, growers, dispensaries, grow and extraction tips.
   media, can delete any comment, and can ban members from commenting (and unban them) from
   their profile page. Banned members can still read and delete their own comments.
 
+- **Contact us** (footer and account menu): visitors leave an email and/or phone number and a
+  message. The Cloudflare Worker (`worker/contact.js`) rate-limits it (3/min per IP), stores it in
+  `contact_messages` (readable only by the superuser) and emails it to the owner via Resend.
+  Until `RESEND_API_KEY` is set, messages are stored but not emailed.
+
 All of this is enforced in the database (RLS + column grants + storage policies), not only in
 the UI: a member calling the API directly still cannot create a post.
 
@@ -144,6 +149,11 @@ npx wrangler login          # once
 npm run db:migrate:prod     # if there are new migrations
 npm run deploy              # vite build (prod env) + wrangler deploy
 ```
+
+Worker secrets (Supabase secret key, contact inbox, Resend key) are not in the repo. Set them
+with `npm run db -- worker-secrets prod` (and `... dev` to write the gitignored `.dev.vars` for
+local dev). The inbox and Resend key are read from `CONTACT_TO` / `RESEND_API_KEY` or the
+Keychain (service `usoc-worker`).
 
 `wrangler.jsonc` serves `dist/` with SPA fallback (deep links like `/post/1` load `index.html`);
 `public/_headers` sets security and caching headers. If the URL ever changes, update `siteUrl`

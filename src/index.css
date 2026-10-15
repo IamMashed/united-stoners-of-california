@@ -717,6 +717,51 @@ a {
   margin-top: 6px;
 }
 
+.FormCard-lead {
+  color: var(--usoc-muted);
+  margin: 4px 0 0;
+}
+
+.Contact-count {
+  display: block;
+  text-align: right;
+  color: var(--usoc-muted);
+}
+
+/* Honeypot field: off-screen rather than display:none, which some bots skip. */
+.Contact-trap {
+  position: absolute;
+  left: -10000px;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+
+/* ---- footer ------------------------------------------------------------- */
+
+.Footer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 8px var(--usoc-gutter) calc(20px + env(safe-area-inset-bottom));
+  text-align: center;
+}
+
+.Footer-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--usoc-tap);
+  padding: 0 12px;
+  font-weight: 600;
+  color: var(--usoc-green);
+}
+
+.Footer-note {
+  font-size: 0.8rem;
+  color: var(--usoc-muted);
+}
+
 .FormCard-links {
   display: flex;
   flex-direction: column;
