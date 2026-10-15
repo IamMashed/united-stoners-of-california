@@ -17,7 +17,7 @@ strains, growers, dispensaries, grow and extraction tips.
 - **Members** (email + password, or GitHub / Google OAuth) can comment. Comments can include
   up to 4 photos (JPEG/PNG/WebP/GIF, 5 MB each), clickable links, and embedded videos from
   YouTube, Vimeo, TikTok and Instagram links. Members can delete their own comments.
-- **The superuser** (exactly one account) writes and edits the posts, which support the same
+- **Admins** (one or more superusers) write and edit the posts, which support the same
   media, can delete any comment, and can ban members from commenting (and unban them) from
   their profile page. Banned members can still read and delete their own comments.
 
@@ -36,10 +36,11 @@ the UI: a member calling the API directly still cannot create a post.
 
 ### Superuser
 
-Sign up normally, then promote the account (at most one superuser; this replaces any previous one):
+Sign up normally, then promote the account. There can be several admins, all with the same powers:
 
 ```bash
-npm run db -- make-admin prod you@example.com
+npm run db -- make-admin prod you@example.com     # add an admin
+npm run db -- remove-admin prod them@example.com  # remove one (never the last)
 ```
 
 On dev, the seed makes `kushking@example.com` the superuser.

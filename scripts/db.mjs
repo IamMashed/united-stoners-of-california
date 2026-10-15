@@ -13,7 +13,8 @@
 //   auth      push auth settings (site URL, redirects, confirmations, password length,
 //             custom SMTP when environments.json has an `smtp` block)
 //   env       write .env.<mode> with the project URL and publishable key
-//   make-admin <email>   make that account the single superuser (post author)
+//   make-admin <email>   make that account an admin (superuser); existing admins stay
+//   remove-admin <email> take admin away (refuses to remove the last admin)
 //   query "<sql>"        run ad-hoc SQL and print the rows as JSON
 //   worker-secrets       give the Cloudflare Worker its secrets (contact form): prod ->
 //             `wrangler secret bulk`, dev -> .dev.vars. CONTACT_TO / RESEND_API_KEY come from
@@ -243,12 +244,27 @@ end $$;`);
       + (env.smtp ? `, emails via ${env.smtp.host} as ${env.smtp.senderEmail})` : ', built-in email sender)'));
   },
 
-  // Makes the account with this email the one and only superuser (post author).
+  // Makes the account with this email an admin. Other admins keep their role.
   'make-admin'(env) {
     const email = process.argv[4];
     if (!email) throw new Error('Usage: node scripts/db.mjs make-admin <env> <email>');
-    // Single request = single transaction; clear the old admin first so the
-    // one-admin unique index is never violated mid-way.
+    const rows = sql(env.ref, `
+      do $$
+      begin
+        update public.profiles set is_admin = true
+          where id = (select id from auth.users where lower(email) = lower(${quote(email)}));
+        if not found then
+          raise exception 'No account with email %', ${quote(email)};
+        end if;
+      end $$;
+      select string_agg(username, ', ' order by username) as admins from public.profiles where is_admin;`);
+    console.log(`${env.name}: admins are now ${rows[0].admins}`);
+  },
+
+  // Takes admin away from the account with this email (never the last admin).
+  'remove-admin'(env) {
+    const email = process.argv[4];
+    if (!email) throw new Error('Usage: node scripts/db.mjs remove-admin <env> <email>');
     const rows = sql(env.ref, `
       do $$
       declare target uuid;
@@ -257,11 +273,13 @@ end $$;`);
         if target is null then
           raise exception 'No account with email %', ${quote(email)};
         end if;
-        update public.profiles set is_admin = false where is_admin and id <> target;
-        update public.profiles set is_admin = true where id = target;
+        if (select count(*) from public.profiles where is_admin and id <> target) = 0 then
+          raise exception 'Refusing to remove the last admin';
+        end if;
+        update public.profiles set is_admin = false where id = target;
       end $$;
-      select username from public.profiles where is_admin;`);
-    console.log(`${env.name}: ${rows[0].username} is now the superuser`);
+      select string_agg(username, ', ' order by username) as admins from public.profiles where is_admin;`);
+    console.log(`${env.name}: admins are now ${rows[0].admins}`);
   },
 
   // Ad-hoc SQL: node scripts/db.mjs query dev "select ..."
@@ -316,7 +334,7 @@ end $$;`);
 
 const [command, envName] = process.argv.slice(2);
 if (!commands[command] || !envName) {
-  console.error('Usage: node scripts/db.mjs <status|migrate|seed|test|auth|env|make-admin|query|worker-secrets> <dev|prod> [arg]');
+  console.error('Usage: node scripts/db.mjs <status|migrate|seed|test|auth|env|make-admin|remove-admin|query|worker-secrets> <dev|prod> [arg]');
   process.exit(2);
 }
 try {

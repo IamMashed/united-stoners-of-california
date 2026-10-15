@@ -2,7 +2,7 @@
 -- Verifies the signup trigger, RLS policies and column grants that protect the
 -- PostgREST API. Everything runs in a transaction and is rolled back.
 begin;
-select plan(63);
+select plan(65);
 
 -------------------------------------------------------------------------------
 -- Fixtures (as postgres). The auth trigger creates the profiles.
@@ -53,9 +53,9 @@ select is(
   (select is_admin from public.profiles where id = 'bbbbbbbb-0000-0000-0000-000000000002'),
   false, 'new users are not admins');
 
-select throws_ok(
-  $$update public.profiles set is_admin = true where id = 'bbbbbbbb-0000-0000-0000-000000000002'$$,
-  '23505', null, 'there can only be one superuser');
+select lives_ok(
+  $$update public.profiles set is_admin = true where id = 'eeeeeeee-0000-0000-0000-000000000005'$$,
+  'there can be more than one admin');
 
 -------------------------------------------------------------------------------
 -- Anonymous visitors: read-only
@@ -158,6 +158,20 @@ select lives_ok(
   'the superuser can create posts with images');
 select isnt_empty($$update public.posts set body = 'edited' where body = 'new admin post' returning id$$,
   'the superuser can edit posts');
+
+reset role;
+set local role authenticated;
+select set_config('request.jwt.claims',
+  '{"sub":"eeeeeeee-0000-0000-0000-000000000005","role":"authenticated"}', true);
+select isnt_empty($$update public.posts set body = 'edited by the second admin' where body = 'edited' returning id$$,
+  'a second admin can edit another admin''s post and keep its photos');
+select throws_ok($$update public.posts set image_paths = array['bbbbbbbb-0000-0000-0000-000000000002/x.jpg']
+  where body = 'edited by the second admin'$$,
+  '42501', null, 'admins cannot attach photos from a member''s folder');
+reset role;
+set local role authenticated;
+select set_config('request.jwt.claims',
+  '{"sub":"aaaaaaaa-0000-0000-0000-000000000001","role":"authenticated"}', true);
 select isnt_empty($$delete from public.comments where body = 'carol comment' returning id$$,
   'the superuser can delete anyone''s comment');
 
