@@ -10,7 +10,8 @@
 //             supabase_migrations.schema_migrations table the CLI uses)
 //   seed      run supabase/seed.sql (dev only)
 //   test      run supabase/tests/database/*.test.sql with pgTAP (dev only; always rolled back)
-//   auth      push auth settings (site URL, redirects, confirmations, password length)
+//   auth      push auth settings (site URL, redirects, confirmations, password length,
+//             custom SMTP when environments.json has an `smtp` block)
 //   env       write .env.<mode> with the project URL and publishable key
 //   make-admin <email>   make that account the single superuser (post author)
 //   query "<sql>"        run ad-hoc SQL and print the rows as JSON
@@ -89,6 +90,23 @@ function workerSecret(name) {
   catch {
     return null;
   }
+}
+
+// Custom SMTP (Resend) for auth emails when the environment has an `smtp` block.
+// The password is the Resend API key (RESEND_API_KEY env var or Keychain).
+function smtpSettings(env) {
+  if (!env.smtp) return {};
+  const pass = workerSecret('RESEND_API_KEY');
+  if (!pass) throw new Error(`${env.name} uses custom SMTP; set RESEND_API_KEY (or Keychain usoc-worker/RESEND_API_KEY)`);
+  return {
+    smtp_host: env.smtp.host,
+    smtp_port: String(env.smtp.port),
+    smtp_user: env.smtp.user,
+    smtp_pass: pass,
+    smtp_admin_email: env.smtp.senderEmail,
+    smtp_sender_name: env.smtp.senderName,
+    rate_limit_email_sent: env.smtp.emailsPerHour,
+  };
 }
 
 const sql = (ref, query) => request('POST', `/projects/${ref}/database/query`, { query });
@@ -219,8 +237,10 @@ end $$;`);
       password_min_length: 8,
       external_email_enabled: true,
       disable_signup: false,
+      ...smtpSettings(env),
     });
-    console.log(`${env.name}: auth config updated (site_url=${env.siteUrl})`);
+    console.log(`${env.name}: auth config updated (site_url=${env.siteUrl}`
+      + (env.smtp ? `, emails via ${env.smtp.host} as ${env.smtp.senderEmail})` : ', built-in email sender)'));
   },
 
   // Makes the account with this email the one and only superuser (post author).

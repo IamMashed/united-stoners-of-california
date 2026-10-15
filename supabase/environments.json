@@ -16,6 +16,14 @@
     "extraRedirectUrls": [
       "https://united-stoners-of-california.united-stoners-of-california.workers.dev/**",
       "http://localhost:4173/**"
-    ]
+    ],
+    "smtp": {
+      "host": "smtp.resend.com",
+      "port": 465,
+      "user": "resend",
+      "senderEmail": "no-reply@unitedstoners.club",
+      "senderName": "United Stoners of California",
+      "emailsPerHour": 100
+    }
   }
 }

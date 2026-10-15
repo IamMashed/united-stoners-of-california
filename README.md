@@ -124,10 +124,20 @@ npm run lint
 
 ## Email
 
-Supabase's built-in email sender only delivers to members of the Supabase org and is
-heavily rate limited. That's fine for dev with your own address. **Before launch, configure
-custom SMTP for prod** (Resend, SendGrid, Postmark, ...) under Authentication → Emails → SMTP
-in the dashboard.
+Prod sends all email through [Resend](https://resend.com) (free tier: 3,000/month, 100/day) from
+`no-reply@unitedstoners.club`. The domain is verified in Resend (DKIM, SPF and DMARC records live
+in Cloudflare DNS).
+
+- **Auth emails** (signup confirmation, password reset): Supabase custom SMTP, configured by
+  `npm run db -- auth prod` from the `smtp` block in `supabase/environments.json`.
+- **Contact form**: the Worker calls the Resend API.
+
+Both use one Resend API key (sending access, unitedstoners.club only), kept out of the repo in
+the Keychain (service `usoc-worker`, account `RESEND_API_KEY`) or the `RESEND_API_KEY` env var.
+After rotating it, run `npm run db -- auth prod` and `npm run db -- worker-secrets prod`.
+
+Dev still uses Supabase's built-in sender, which only delivers to members of the Supabase org and
+is heavily rate limited. That's fine for testing with your own address.
 
 ## OAuth (GitHub / Google)
 
