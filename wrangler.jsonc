@@ -1,14 +1,26 @@
 {
-  // Cloudflare Workers static-assets hosting for the built frontend (`npm run deploy`).
+  // Cloudflare Worker serving the built frontend (`npm run deploy`).
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "united-stoners-of-california",
+  "main": "worker/index.js",
   "compatibility_date": "2026-10-06",
   "observability": {
     "enabled": true
   },
+  // Custom domains: Cloudflare creates the DNS records and TLS certificates on deploy.
+  // The workers.dev URL stays enabled as a fallback.
+  "routes": [
+    { "pattern": "unitedstoners.club", "custom_domain": true },
+    { "pattern": "www.unitedstoners.club", "custom_domain": true }
+  ],
+  "workers_dev": true,
   "assets": {
     "directory": "./dist",
+    "binding": "ASSETS",
     // Unknown paths (e.g. /post/1) serve index.html so React Router can handle them.
-    "not_found_handling": "single-page-application"
+    "not_found_handling": "single-page-application",
+    // The worker must see requests first to redirect www; it hands everything else to
+    // the asset store (free tier: 100k requests/day).
+    "run_worker_first": true
   }
 }

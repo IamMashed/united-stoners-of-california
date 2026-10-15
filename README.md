@@ -136,7 +136,8 @@ in the dashboard.
 ## Deploying
 
 The frontend is hosted on Cloudflare (Workers static assets, free tier):
-**https://united-stoners-of-california.united-stoners-of-california.workers.dev**
+**https://unitedstoners.club** (`www.` redirects there; the old
+https://united-stoners-of-california.united-stoners-of-california.workers.dev still works)
 
 ```bash
 npx wrangler login          # once

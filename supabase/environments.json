@@ -11,9 +11,10 @@
   "prod": {
     "ref": "psarkbkrhukowqdivkto",
     "viteMode": "production",
-    "siteUrl": "https://united-stoners-of-california.united-stoners-of-california.workers.dev",
+    "siteUrl": "https://unitedstoners.club",
     "allowDestructive": false,
     "extraRedirectUrls": [
+      "https://united-stoners-of-california.united-stoners-of-california.workers.dev/**",
       "http://localhost:4173/**"
     ]
   }
