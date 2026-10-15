@@ -22,7 +22,6 @@ export default memo(function Post({
             <Link to={'/user/' + item.author.username} className="Item-author">
               {item.author.username}
             </Link>
-            {item.author.is_admin && <span className="FounderBadge">Founder</span>}
           </div>
           <span className="Item-time">
             <TimeAgo isoDate={item.created_at} />

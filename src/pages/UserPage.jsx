@@ -67,7 +67,6 @@ function UserProfile({ username }) {
         <Avatar user={profile} size={96} />
         <h1 className="Profile-name">
           {profile.username}
-          {profile.is_admin && <span className="FounderBadge">Founder</span>}
           {showBanned && <span className="BannedBadge">Banned</span>}
         </h1>
         {profile.about_me && <p className="Profile-about">{profile.about_me}</p>}

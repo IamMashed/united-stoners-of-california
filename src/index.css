@@ -324,20 +324,6 @@ a {
   white-space: nowrap;
 }
 
-.FounderBadge {
-  display: inline-block;
-  font-size: 0.7rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: #2a2207;
-  background: var(--usoc-gold);
-  border-radius: 999px;
-  padding: 2px 8px;
-  line-height: 1.4;
-  vertical-align: middle;
-}
-
 .BannedBadge {
   display: inline-block;
   font-size: 0.7rem;
