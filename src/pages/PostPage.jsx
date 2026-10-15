@@ -89,7 +89,7 @@ function PostThread({ postId }) {
           <Link to="/" className="BackLink">&larr; All posts</Link>
           {editing ?
             <Composer placeholder="Edit the post…" submitLabel="Save" autoFocus tip={POST_TIP}
-              initialBody={post.body} initialPaths={post.image_paths}
+              initialBody={post.body} initialPaths={post.image_paths} initialVideo={post.video_path}
               onSubmit={savePost} onCancel={() => setEditing(false)} />
           :
             <Post item={post} className="Card Post Post-full"

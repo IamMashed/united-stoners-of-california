@@ -3,13 +3,15 @@
 // unexpected failures (network down, 5xx) are also reported through `onError`.
 
 import { imageExtension } from '../lib/media.js';
+import { videoExtension } from '../lib/video.js';
 
 export const PAGE_SIZE = 25;
 export const MEDIA_BUCKET = 'media';
+export const VIDEO_BUCKET = 'videos';
 
 const AUTHOR = 'author:profiles(id, username, avatar_url, is_admin)';
-const POST_SELECT = `id, body, image_paths, created_at, updated_at, ${AUTHOR}, comments(count)`;
-const COMMENT_SELECT = `id, post_id, body, image_paths, created_at, updated_at, ${AUTHOR}`;
+const POST_SELECT = `id, body, image_paths, video_path, created_at, updated_at, ${AUTHOR}, comments(count)`;
+const COMMENT_SELECT = `id, post_id, body, image_paths, video_path, created_at, updated_at, ${AUTHOR}`;
 const PROFILE_SELECT = 'id, username, about_me, avatar_url, is_admin, banned_at, created_at, last_seen';
 
 function normalizePost(row) {
@@ -83,17 +85,52 @@ export default class SupabaseApiClient {
     }
   }
 
-  // Uploads the files, then inserts the row; removes the uploads if the insert fails.
-  async insertWithImages(table, values, files, select) {
+  videoUrl(path) {
+    return this.supabase.storage.from(VIDEO_BUCKET).getPublicUrl(path).data.publicUrl;
+  }
+
+  // Uploads one (already prepared, see lib/video.js) video into `<user id>/<uuid>.<ext>`.
+  // Resolves to the storage path, or null when there is no file.
+  async uploadVideo(file) {
+    if (!file) {
+      return { data: null, error: null };
+    }
+    const { data: { session } } = await this.supabase.auth.getSession();
+    if (!session) {
+      return { data: null, error: { message: 'You need to be logged in to upload videos.' } };
+    }
+    const path = `${session.user.id}/${crypto.randomUUID()}.${videoExtension(file.type)}`;
+    const { error } = await this.supabase.storage.from(VIDEO_BUCKET).upload(path, file, {
+      contentType: file.type, cacheControl: '3600', upsert: false,
+    });
+    return error ? { data: null, error } : { data: path, error: null };
+  }
+
+  async removeVideo(path) {
+    if (path) {
+      await this.supabase.storage.from(VIDEO_BUCKET).remove([path]);
+    }
+  }
+
+  // Uploads the photos and video, then inserts the row; removes the uploads if
+  // anything fails.
+  async insertWithMedia(table, values, files, video, select) {
+    const { data: videoPath, error: videoError } = await this.uploadVideo(video);
+    if (videoError) {
+      return { data: null, error: videoError };
+    }
     const { data: paths, error: uploadError } = await this.uploadImages(files);
     if (uploadError) {
+      await this.removeVideo(videoPath);
       return { data: null, error: uploadError };
     }
     const result = await this.run(
-      this.supabase.from(table).insert({ ...values, image_paths: paths }).select(select).single()
+      this.supabase.from(table).insert({ ...values, image_paths: paths, video_path: videoPath })
+        .select(select).single()
     );
     if (result.error) {
       await this.removeImages(paths);
+      await this.removeVideo(videoPath);
     }
     return result;
   }
@@ -128,30 +165,42 @@ export default class SupabaseApiClient {
     return { data: data && normalizePost(data), error };
   }
 
-  async createPost({ body, files }) {
-    const { data, error } = await this.insertWithImages(
-      'posts', { body: body.trim() }, files, POST_SELECT
+  async createPost({ body, files, video = null }) {
+    const { data, error } = await this.insertWithMedia(
+      'posts', { body: body.trim() }, files, video, POST_SELECT
     );
     return { data: data && normalizePost(data), error };
   }
 
-  // Superuser only. `keepPaths` are the existing images to keep (in order); `files`
-  // are new uploads appended after them. Dropped images are removed from storage
-  // once the update succeeds; new uploads are removed again if it fails.
-  async updatePost(post, { body, keepPaths, files }) {
+  // Admins only. `keepPaths` are the existing images to keep (in order); `files` are
+  // new uploads appended after them. Video: `keepVideo` keeps the current one, `video`
+  // replaces it with a new upload, neither removes it. Dropped files are removed from
+  // storage once the update succeeds; new uploads are removed again if it fails.
+  async updatePost(post, { body, keepPaths, files, keepVideo = !!post.video_path, video = null }) {
+    const { data: newVideo, error: videoError } = await this.uploadVideo(video);
+    if (videoError) {
+      return { data: null, error: videoError };
+    }
     const { data: added, error: uploadError } = await this.uploadImages(files);
     if (uploadError) {
+      await this.removeVideo(newVideo);
       return { data: null, error: uploadError };
     }
+    const videoPath = newVideo || (keepVideo ? post.video_path : null);
     const result = await this.run(
-      this.supabase.from('posts').update({ body: body.trim(), image_paths: [...keepPaths, ...added] })
+      this.supabase.from('posts')
+        .update({ body: body.trim(), image_paths: [...keepPaths, ...added], video_path: videoPath })
         .eq('id', post.id).select(POST_SELECT).single()
     );
     if (result.error) {
       await this.removeImages(added);
+      await this.removeVideo(newVideo);
       return result;
     }
     await this.removeImages((post.image_paths || []).filter((p) => !keepPaths.includes(p)));
+    if (post.video_path && post.video_path !== videoPath) {
+      await this.removeVideo(post.video_path);
+    }
     return { data: normalizePost(result.data), error: null };
   }
 
@@ -159,6 +208,7 @@ export default class SupabaseApiClient {
     const result = await this.run(this.supabase.from('posts').delete().eq('id', post.id));
     if (!result.error) {
       await this.removeImages(post.image_paths || []);
+      await this.removeVideo(post.video_path);
     }
     return result;
   }
@@ -179,9 +229,9 @@ export default class SupabaseApiClient {
     );
   }
 
-  async createComment(postId, { body, files }) {
-    return this.insertWithImages(
-      'comments', { post_id: postId, body: body.trim() }, files, COMMENT_SELECT
+  async createComment(postId, { body, files, video = null }) {
+    return this.insertWithMedia(
+      'comments', { post_id: postId, body: body.trim() }, files, video, COMMENT_SELECT
     );
   }
 
@@ -189,6 +239,7 @@ export default class SupabaseApiClient {
     const result = await this.run(this.supabase.from('comments').delete().eq('id', comment.id));
     if (!result.error) {
       await this.removeImages(comment.image_paths || []);
+      await this.removeVideo(comment.video_path);
     }
     return result;
   }

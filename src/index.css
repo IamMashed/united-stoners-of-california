@@ -510,6 +510,15 @@ a {
   aspect-ratio: 2;
 }
 
+.UploadedVideo {
+  display: block;
+  width: 100%;
+  max-height: 70vh;
+  margin-bottom: 10px;
+  border-radius: 12px;
+  background: #0d0f0e;
+}
+
 .InlinePhoto {
   margin: 0 0 12px;
   border-radius: 12px;
@@ -587,9 +596,17 @@ a {
 
 .Composer-actions {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 8px;
   margin-top: 10px;
+}
+
+/* Small phones: Photo / Video buttons become icon-only so the row fits. */
+@media (max-width: 420px) {
+  .Composer-label {
+    display: none;
+  }
 }
 
 .Composer-photo {
@@ -618,6 +635,33 @@ a {
   flex-wrap: wrap;
   gap: 8px;
   margin-top: 10px;
+}
+
+.VideoPreview {
+  position: relative;
+  margin-top: 10px;
+}
+
+.VideoPreview video {
+  display: block;
+  width: 100%;
+  max-height: 240px;
+  border-radius: 10px;
+  background: #0d0f0e;
+}
+
+.VideoPreview .btn-close {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  background-size: 10px;
+  background-color: #fff;
+  border-radius: 50%;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+  opacity: 1;
 }
 
 .ImagePreview {

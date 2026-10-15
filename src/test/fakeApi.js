@@ -16,14 +16,14 @@ function authorOf(profile) {
 
 export function makePost(id, author, body, commentCount = 0, imagePaths = []) {
   return {
-    id, body, image_paths: imagePaths, created_at: '2026-10-13T00:00:00Z', updated_at: null,
+    id, body, image_paths: imagePaths, video_path: null, created_at: '2026-10-13T00:00:00Z', updated_at: null,
     author: authorOf(author), comment_count: commentCount,
   };
 }
 
 export function makeComment(id, postId, author, body, imagePaths = []) {
   return {
-    id, post_id: postId, body, image_paths: imagePaths, created_at: '2026-10-13T00:00:00Z',
+    id, post_id: postId, body, image_paths: imagePaths, video_path: null, created_at: '2026-10-13T00:00:00Z',
     updated_at: null, author: authorOf(author),
   };
 }
@@ -80,8 +80,9 @@ export function makeFakeApi({
     })),
     listPosts: vi.fn(async () => ({ data: { posts, more: false }, error: null })),
     getPost: vi.fn(async (id) => ({ data: posts.find((p) => p.id === id) ?? null, error: null })),
-    createPost: vi.fn(async ({ body, files }) => ({
-      data: makePost(999, loggedInAs, body, 0, files.map((f) => `${loggedInAs.id}/${f.name}`)),
+    createPost: vi.fn(async ({ body, files, video }) => ({
+      data: { ...makePost(999, loggedInAs, body, 0, files.map((f) => `${loggedInAs.id}/${f.name}`)),
+        video_path: video ? `${loggedInAs.id}/${video.name}` : null },
       error: null,
     })),
     updatePost: vi.fn(async (post, { body, keepPaths, files }) => ({
@@ -96,8 +97,9 @@ export function makeFakeApi({
     listCommentsByUser: vi.fn(async (userId) => ({
       data: comments.filter((c) => c.author.id === userId), error: null,
     })),
-    createComment: vi.fn(async (postId, { body, files }) => ({
-      data: makeComment(888, postId, loggedInAs, body, files.map((f) => `${loggedInAs.id}/${f.name}`)),
+    createComment: vi.fn(async (postId, { body, files, video }) => ({
+      data: { ...makeComment(888, postId, loggedInAs, body, files.map((f) => `${loggedInAs.id}/${f.name}`)),
+        video_path: video ? `${loggedInAs.id}/${video.name}` : null },
       error: null,
     })),
     deleteComment: vi.fn(async () => ({ data: null, error: null })),
@@ -107,5 +109,6 @@ export function makeFakeApi({
     getEmailPreferences: vi.fn(async () => ({ data: { notify_new_posts: true }, error: null })),
     setNotifyNewPosts: vi.fn(async (userId, enabled) => ({ data: { notify_new_posts: enabled }, error: null })),
     mediaUrl: (path) => `https://media.test/${path}`,
+    videoUrl: (path) => `https://videos.test/${path}`,
   };
 }

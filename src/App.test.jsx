@@ -4,6 +4,15 @@ import { vi } from 'vitest';
 import App from './App';
 import { makeFakeApi, makePost, makeComment, KUSH, HASH } from './test/fakeApi';
 
+// jsdom can't decode or re-encode video; the real compression is covered by lib/video tests
+// and manual checks. Here a picked video is "prepared" as-is, or rejected when too long.
+vi.mock('./lib/video', async (importOriginal) => ({
+  ...(await importOriginal()),
+  prepareVideo: vi.fn(async (file) => (file.name.includes('long')
+    ? { error: `${file.name}: videos can be up to 60 seconds long (this one is 95s).` }
+    : { file })),
+}));
+
 function renderAt(path, api) {
   window.history.pushState({}, '', path);
   return render(<App api={api} />);
@@ -177,6 +186,66 @@ describe('post layout', () => {
   });
 });
 
+describe('video uploads', () => {
+  const clip = (name = 'bong-rip.mp4') => new File(['x'], name, { type: 'video/mp4' });
+
+  test('a member comments with an uploaded video and it plays in the comment', async () => {
+    const api = makeFakeApi({ loggedInAs: HASH, posts: POSTS, comments: [] });
+    renderAt('/post/1', api);
+
+    await userEvent.upload(await screen.findByTestId('video-input'), clip());
+    expect(await screen.findByLabelText('Video preview')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Comment' }));
+
+    const comment = (await screen.findByLabelText('Uploaded video')).closest('.Comment');
+    expect(within(comment).getByLabelText('Uploaded video')).toHaveAttribute('src', 'https://videos.test/u-hash/bong-rip.mp4');
+    expect(api.createComment).toHaveBeenCalledWith(1, expect.objectContaining({ video: expect.any(File) }));
+  });
+
+  test('a video upload and a video link together are refused', async () => {
+    const api = makeFakeApi({ loggedInAs: HASH, posts: POSTS, comments: [] });
+    renderAt('/post/1', api);
+
+    await userEvent.upload(await screen.findByTestId('video-input'), clip());
+    await userEvent.type(screen.getByPlaceholderText(/Add a comment/), 'also https://youtu.be/dQw4w9WgXcQ');
+    await userEvent.click(screen.getByRole('button', { name: 'Comment' }));
+
+    expect(await screen.findByText(/One video per post or comment/)).toBeInTheDocument();
+    expect(api.createComment).not.toHaveBeenCalled();
+  });
+
+  test('two video links in one comment are refused', async () => {
+    const api = makeFakeApi({ loggedInAs: HASH, posts: POSTS, comments: [] });
+    renderAt('/post/1', api);
+
+    await userEvent.type(await screen.findByPlaceholderText(/Add a comment/),
+      'https://youtu.be/dQw4w9WgXcQ and https://vimeo.com/76979871');
+    await userEvent.click(screen.getByRole('button', { name: 'Comment' }));
+
+    expect(await screen.findByText(/One video per post or comment/)).toBeInTheDocument();
+    expect(api.createComment).not.toHaveBeenCalled();
+  });
+
+  test('a video that is too long is rejected with the reason', async () => {
+    renderAt('/post/1', makeFakeApi({ loggedInAs: HASH, posts: POSTS, comments: [] }));
+
+    await userEvent.upload(await screen.findByTestId('video-input'), clip('long-sesh.mp4'));
+
+    expect(await screen.findByText(/up to 60 seconds long \(this one is 95s\)/)).toBeInTheDocument();
+    expect(screen.queryByLabelText('Video preview')).toBeNull();
+  });
+
+  test('a post with an uploaded video shows it at the top, also in the feed preview', async () => {
+    const post = { ...makePost(9, KUSH, 'Fresh press\n\nDetails below.', 0), video_path: 'u-kush/press.mp4' };
+    renderAt('/', makeFakeApi({ posts: [post] }));
+
+    const card = (await screen.findByText(/Fresh press/)).closest('.Post');
+    const video = within(card).getByLabelText('Uploaded video');
+    expect(video).toHaveAttribute('src', 'https://videos.test/u-kush/press.mp4');
+    expect(video.compareDocumentPosition(within(card).getByText(/Fresh press/)) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+});
+
 describe('new post emails', () => {
   test('publishing a post emails members and says how many got it', async () => {
     const api = makeFakeApi({ loggedInAs: KUSH, posts: POSTS });
@@ -279,7 +348,7 @@ describe('editing posts', () => {
     expect(within(post).getByText(/edited/)).toBeInTheDocument();
     expect(within(post).queryByRole('img', { name: 'Photo 1' })).toBeNull();
     expect(api.updatePost).toHaveBeenCalledWith(withPhoto,
-      { body: 'Rosin at 190F', keepPaths: [], files: [] });
+      { body: 'Rosin at 190F', keepPaths: [], files: [], video: null, keepVideo: false });
   });
 
   test('cancel leaves the post unchanged', async () => {

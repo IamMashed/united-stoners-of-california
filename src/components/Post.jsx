@@ -41,7 +41,7 @@ export default memo(function Post({
           </button>
         }
       </header>
-      <Content body={item.body} imagePaths={item.image_paths} readMoreTo={readMoreTo} />
+      <Content body={item.body} imagePaths={item.image_paths} videoPath={item.video_path} readMoreTo={readMoreTo} />
       {footer && <footer className="Item-foot">{footer}</footer>}
     </article>
   );

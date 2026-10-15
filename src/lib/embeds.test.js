@@ -1,4 +1,4 @@
-import { displayUrl, splitLinks, videoEmbed, videoEmbeds } from './embeds';
+import { countVideoLinks, displayUrl, splitLinks, videoEmbed, videoEmbeds } from './embeds';
 import { validateImages } from './media';
 
 describe('splitLinks', () => {
@@ -36,14 +36,11 @@ describe('videoEmbed', () => {
     expect(videoEmbed(url)).toBeNull();
   });
 
-  test('deduplicates and caps embeds per comment', () => {
+  test('embeds only the first video and counts distinct video links', () => {
     const text = ['https://youtu.be/dQw4w9WgXcQ', 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
-      'https://vimeo.com/1', 'https://vimeo.com/2', 'https://vimeo.com/3'].join(' ');
-    expect(videoEmbeds(text).map((e) => e.src)).toEqual([
-      'https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ',
-      'https://player.vimeo.com/video/1',
-      'https://player.vimeo.com/video/2',
-    ]);
+      'https://vimeo.com/1', 'https://example.com/not-a-video'].join(' ');
+    expect(videoEmbeds(text).map((e) => e.src)).toEqual(['https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ']);
+    expect(countVideoLinks(text)).toBe(2);
   });
 });
 

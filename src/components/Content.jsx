@@ -20,9 +20,10 @@ export function isLongText(text) {
 // With `readMoreTo` (the feed preview) only the top media is shown: the video(s) and a
 // photo placed above the first paragraph. Long text is clamped, and a "Read more" link
 // appears whenever the full post has more to see (text or photos).
-export default function Content({ body, imagePaths = [], readMoreTo }) {
+export default function Content({ body, imagePaths = [], videoPath = null, readMoreTo }) {
   const api = useApi();
-  const embeds = useMemo(() => videoEmbeds(body || ''), [body]);
+  // One video per post: an uploaded file wins over a link (the database forbids both).
+  const embeds = useMemo(() => (videoPath ? [] : videoEmbeds(body || '')), [body, videoPath]);
   // A line that is just a video link is replaced by its player at the top.
   const text = useMemo(() => (body || '').split('\n')
     .filter((line) => !(line.trim() && /^\S+$/.test(line.trim()) && videoEmbed(line.trim())))
@@ -33,7 +34,10 @@ export default function Content({ body, imagePaths = [], readMoreTo }) {
       <Photo url={api.mediaUrl(imagePaths[index])} number={index + 1} />
     </figure>;
 
-  const videos = embeds.map((embed) => embed.aspect === 'wide' ?
+  const videos = videoPath ? [
+    <video key={videoPath} className="UploadedVideo" src={api.videoUrl(videoPath)}
+      controls playsInline preload="metadata" aria-label="Uploaded video" />,
+  ] : embeds.map((embed) => embed.aspect === 'wide' ?
     <Ratio key={embed.src} aspectRatio="16x9" className="VideoEmbed">
       <EmbedFrame embed={embed} />
     </Ratio>
@@ -44,7 +48,7 @@ export default function Content({ body, imagePaths = [], readMoreTo }) {
   );
 
   if (readMoreTo) {
-    const preview = previewOf(layout, stripPhotoMarkers(text), embeds.length, imagePaths.length);
+    const preview = previewOf(layout, stripPhotoMarkers(text), videos.length, imagePaths.length);
     return (
       <div className="Content-body">
         {videos}

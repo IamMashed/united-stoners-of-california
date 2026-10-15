@@ -4,7 +4,8 @@
 
 const URL_RE = /https?:\/\/[^\s<>"']+/gi;
 const TRAILING_PUNCTUATION = /[.,!?;:)\]}'"]+$/;
-export const MAX_EMBEDS = 3;
+// One video per post/comment (an uploaded file counts too, see Composer).
+export const MAX_EMBEDS = 1;
 
 export function splitLinks(text) {
   const segments = [];
@@ -79,8 +80,17 @@ export function videoEmbed(href) {
   return youtube(url) || vimeo(url) || tiktok(url) || instagram(url);
 }
 
+// Number of distinct embeddable video links in the text (uncapped).
+export function countVideoLinks(text) {
+  return uniqueEmbeds(text).length;
+}
+
 // Unique video embeds for all links in the text, capped at MAX_EMBEDS.
 export function videoEmbeds(text) {
+  return uniqueEmbeds(text).slice(0, MAX_EMBEDS);
+}
+
+function uniqueEmbeds(text) {
   const seen = new Set();
   const embeds = [];
   for (const segment of splitLinks(text)) {
@@ -91,5 +101,5 @@ export function videoEmbeds(text) {
       embeds.push(embed);
     }
   }
-  return embeds.slice(0, MAX_EMBEDS);
+  return embeds;
 }

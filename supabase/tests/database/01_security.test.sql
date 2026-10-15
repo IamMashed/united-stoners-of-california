@@ -2,7 +2,7 @@
 -- Verifies the signup trigger, RLS policies and column grants that protect the
 -- PostgREST API. Everything runs in a transaction and is rolled back.
 begin;
-select plan(68);
+select plan(73);
 
 -------------------------------------------------------------------------------
 -- Fixtures (as postgres). The auth trigger creates the profiles.
@@ -128,6 +128,26 @@ select isnt_empty($$delete from public.comments where body = 'bob comment' retur
 select lives_ok(
   $$insert into storage.objects (bucket_id, name) values ('media', 'bbbbbbbb-0000-0000-0000-000000000002/pic.jpg')$$,
   'members can upload into their own media folder');
+
+select lives_ok(
+  $$insert into public.comments (post_id, body, video_path)
+    select id, '', 'bbbbbbbb-0000-0000-0000-000000000002/clip.mp4' from public.posts where body = 'admin post'$$,
+  'members can comment with just an uploaded video');
+select throws_ok(
+  $$insert into public.comments (post_id, body, video_path)
+    select id, 'and https://youtu.be/dQw4w9WgXcQ', 'bbbbbbbb-0000-0000-0000-000000000002/clip2.mp4'
+    from public.posts where body = 'admin post'$$,
+  '23514', null, 'an uploaded video and a video link cannot be combined');
+select throws_ok(
+  $$insert into public.comments (post_id, body, video_path)
+    select id, 'stolen', 'cccccccc-0000-0000-0000-000000000003/clip.mp4' from public.posts where body = 'admin post'$$,
+  '42501', null, 'cannot attach a video from another user''s folder');
+select lives_ok(
+  $$insert into storage.objects (bucket_id, name) values ('videos', 'bbbbbbbb-0000-0000-0000-000000000002/clip.mp4')$$,
+  'members can upload videos into their own folder');
+select throws_ok(
+  $$insert into storage.objects (bucket_id, name) values ('videos', 'cccccccc-0000-0000-0000-000000000003/clip.mp4')$$,
+  '42501', null, 'members cannot upload videos into someone else''s folder');
 select throws_ok(
   $$insert into storage.objects (bucket_id, name) values ('media', 'cccccccc-0000-0000-0000-000000000003/pic.jpg')$$,
   '42501', null, 'members cannot upload into someone else''s folder');
@@ -314,12 +334,13 @@ insert into storage.objects (bucket_id, name, created_at)
   values ('media', 'bbbbbbbb-0000-0000-0000-000000000002/stray.png', now() - interval '2 days'),
          ('media', 'bbbbbbbb-0000-0000-0000-000000000002/fresh.png', now());
 select results_eq(
-  $$select o from public.orphaned_media() o where o like 'bbbbbbbb-0000-0000-0000-000000000002/%'$$,
+  $$select name from public.orphaned_media() where name like 'bbbbbbbb-0000-0000-0000-000000000002/%'$$,
   $$values ('bbbbbbbb-0000-0000-0000-000000000002/stray.png'::text)$$,
   'old unused photos are listed for cleanup, fresh uploads are not');
 select is_empty(
   $$select * from public.orphaned_media(interval '0 seconds') o
-    where o in (select unnest(image_paths) from public.posts union all select unnest(image_paths) from public.comments)$$,
+    where o.name in (select unnest(image_paths) from public.posts union all select unnest(image_paths) from public.comments
+                     union all select video_path from public.posts union all select video_path from public.comments)$$,
   'photos used by a post or comment are never listed');
 
 set local role authenticated;

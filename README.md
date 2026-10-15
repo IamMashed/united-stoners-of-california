@@ -35,6 +35,11 @@ strains, growers, dispensaries, grow and extraction tips.
   (comment photos of a deleted post, removed or failed uploads) are deleted by a daily Worker
   cron (`worker/cleanup.js`, 11:17 UTC) after a one-day grace period.
 
+- **Video uploads** (posts and comments): one video per post or comment, either an uploaded file
+  or a video link, never both. Uploads are up to 60 seconds; the browser re-encodes them to 720p
+  H.264 MP4 (~20 MB/min, `src/lib/video.js` with mediabunny/WebCodecs) and the file must end
+  up under 50 MB (the Supabase Free plan's per-file cap). Stored in the public `videos` bucket.
+
 All of this is enforced in the database (RLS + column grants + storage policies), not only in
 the UI: a member calling the API directly still cannot create a post.
 
@@ -88,8 +93,9 @@ npm test && npm run test:db && npm run test:smoke
 - `scripts/db.mjs` reads the Supabase token from the macOS Keychain (where `supabase login`
   puts it). On Linux/Windows, set `SUPABASE_ACCESS_TOKEN` instead (create one under
   Account → Access Tokens in the Supabase dashboard).
-- `npm ci` uses whatever registry the machine is configured for (`.npmrc` sets
-  `replace-registry-host=always`, so lockfile URLs from a corporate mirror don't matter).
+- `npm ci` uses whatever registry the machine is configured for: `package-lock.json` records the
+  public registry and npm rewrites it to a mirror set in `~/.npmrc`. Keep it that way: if a
+  mirror's URLs end up in the lockfile, rewrite them to `https://registry.npmjs.org/`.
 - Behind a corporate proxy, set `HTTPS_PROXY`; the scripts honour it. Without a proxy nothing
   extra is needed.
 - Database passwords (only for direct Postgres access) are in the Supabase dashboard

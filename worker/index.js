@@ -11,6 +11,12 @@ import { cleanupOrphanedMedia } from './cleanup.js';
 
 const CANONICAL_HOST = 'unitedstoners.club';
 
+const API_ROUTES = {
+  '/api/contact': handleContact,
+  '/api/notify-new-post': handleNotifyNewPost,
+  '/api/unsubscribe': handleUnsubscribe,
+};
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -18,14 +24,17 @@ export default {
       url.hostname = CANONICAL_HOST;
       return Response.redirect(url.toString(), 301);
     }
-    if (url.pathname === '/api/contact') {
-      return handleContact(request, env);
-    }
-    if (url.pathname === '/api/notify-new-post') {
-      return handleNotifyNewPost(request, env);
-    }
-    if (url.pathname === '/api/unsubscribe') {
-      return handleUnsubscribe(request, env);
+    const api = API_ROUTES[url.pathname];
+    if (api) {
+      // An unexpected failure (e.g. Supabase unreachable) becomes a JSON error the
+      // page can show, instead of an unhandled exception.
+      try {
+        return await api(request, env);
+      }
+      catch (err) {
+        console.error(`${url.pathname} failed`, err);
+        return Response.json({ error: 'Something went wrong on our side. Please try again later.' }, { status: 502 });
+      }
     }
     return env.ASSETS.fetch(request);
   },
