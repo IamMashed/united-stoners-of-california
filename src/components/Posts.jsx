@@ -4,7 +4,7 @@ import Spinner from 'react-bootstrap/Spinner';
 import { useApi } from '../contexts/ApiProvider';
 import { useUser } from '../contexts/UserProvider';
 import { useFlash } from '../contexts/FlashProvider';
-import Composer from './Composer';
+import Composer, { POST_TIP } from './Composer';
 import Post, { commentLabel, CommentIcon } from './Post';
 import More from './More';
 
@@ -56,7 +56,7 @@ export default function Posts({ authorId }) {
   return (
     <>
       {isAdmin && !authorId &&
-        <Composer placeholder="Share a strain, a grow tip, a dispensary find…"
+        <Composer placeholder="Share a strain, a grow tip, a dispensary find…" tip={POST_TIP}
           submitLabel="Post" onSubmit={createPost} />
       }
       {posts === undefined ?

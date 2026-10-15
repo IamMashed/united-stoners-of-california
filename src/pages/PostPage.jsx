@@ -3,7 +3,7 @@ import { useParams, useNavigate, useLocation, Link } from 'react-router-dom';
 import Spinner from 'react-bootstrap/Spinner';
 import Body from '../components/Body';
 import Post, { commentLabel } from '../components/Post';
-import Composer from '../components/Composer';
+import Composer, { POST_TIP } from '../components/Composer';
 import { useApi } from '../contexts/ApiProvider';
 import { useUser } from '../contexts/UserProvider';
 import { useFlash } from '../contexts/FlashProvider';
@@ -88,7 +88,7 @@ function PostThread({ postId }) {
         <>
           <Link to="/" className="BackLink">&larr; All posts</Link>
           {editing ?
-            <Composer placeholder="Edit the post…" submitLabel="Save" autoFocus
+            <Composer placeholder="Edit the post…" submitLabel="Save" autoFocus tip={POST_TIP}
               initialBody={post.body} initialPaths={post.image_paths}
               onSubmit={savePost} onCancel={() => setEditing(false)} />
           :

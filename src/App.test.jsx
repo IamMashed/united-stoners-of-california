@@ -105,9 +105,10 @@ describe('posting is superuser-only', () => {
     const posts = await screen.findAllByText(/Harvest day|Rosin at 180F/);
     expect(posts.map((el) => el.textContent)).toEqual(['Harvest day', 'Rosin at 180F']);
     expect(api.createPost).toHaveBeenCalledWith(expect.objectContaining({ body: 'Harvest day', files: [photo] }));
+    // The feed only previews the post; the photo is on the post page behind "Read more".
     const newPost = posts[0].closest('.Post');
-    expect(within(newPost).getByRole('img', { name: 'Photo 1' }))
-      .toHaveAttribute('src', 'https://media.test/u-kush/harvest.jpg');
+    expect(within(newPost).queryByRole('img', { name: 'Photo 1' })).toBeNull();
+    expect(within(newPost).getByRole('link', { name: 'Read more' })).toHaveAttribute('href', '/post/999');
   });
 });
 
@@ -153,6 +154,64 @@ describe('commenting', () => {
 
     expect(await screen.findByText(/menu.pdf: only JPEG, PNG, WebP and GIF/)).toBeInTheDocument();
     expect(api.createComment).not.toHaveBeenCalled();
+  });
+});
+
+describe('post layout', () => {
+  test('a video shows above the text and a [photo 1] line puts the photo between paragraphs', async () => {
+    const body = 'https://www.youtube.com/watch?v=AeP0MTL-NH8\n\nFirst paragraph.\n\n[photo 1]\n\nSecond paragraph.';
+    renderAt('/post/7', makeFakeApi({ posts: [makePost(7, KUSH, body, 0, ['u-kush/bud.png'])] }));
+
+    const first = await screen.findByText('First paragraph.');
+    const post = first.closest('.Post');
+    const video = within(post).getByTitle('youtube video');
+    const photo = within(post).getByRole('img', { name: 'Photo 1' });
+    const second = within(post).getByText('Second paragraph.');
+    const order = (a, b) => a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING;
+    expect(order(video, first)).toBeTruthy();
+    expect(order(first, photo)).toBeTruthy();
+    expect(order(photo, second)).toBeTruthy();
+    expect(within(post).queryByText('[photo 1]')).toBeNull();
+    // The bare link line is replaced by the player, not shown twice.
+    expect(within(post).queryByRole('link', { name: /youtube\.com/ })).toBeNull();
+  });
+});
+
+describe('feed preview', () => {
+  const TEMPLATE = 'https://youtu.be/AeP0MTL-NH8\n\nShort intro.\n\n[photo 1]\n\nMore text.\n\n[photo 2]\n\nThe end.';
+
+  test('shows the top video and text but no photos, with Read more to the full post', async () => {
+    renderAt('/', makeFakeApi({ posts: [makePost(7, KUSH, TEMPLATE, 0, ['u-kush/a.png', 'u-kush/b.png'])] }));
+
+    const post = (await screen.findByText(/Short intro/)).closest('.Post');
+    expect(within(post).getByTitle('youtube video')).toBeInTheDocument();
+    expect(within(post).queryAllByRole('img', { name: /^Photo/ })).toHaveLength(0);
+    expect(within(post).getByRole('link', { name: 'Read more' })).toHaveAttribute('href', '/post/7');
+  });
+
+  test('a photo placed above the first paragraph is shown as the cover', async () => {
+    const body = '[photo 1]\n\nFresh harvest.\n\n[photo 2]\n\nDetails.';
+    renderAt('/', makeFakeApi({ posts: [makePost(8, KUSH, body, 0, ['u-kush/cover.png', 'u-kush/b.png'])] }));
+
+    const post = (await screen.findByText(/Fresh harvest/)).closest('.Post');
+    const imgs = within(post).getAllByRole('img', { name: /^Photo/ });
+    expect(imgs.map((img) => img.getAttribute('src'))).toEqual(['https://media.test/u-kush/cover.png']);
+    expect(within(post).getByRole('link', { name: 'Read more' })).toBeInTheDocument();
+  });
+
+  test('a short text-only post has no Read more', async () => {
+    renderAt('/', makeFakeApi({ posts: POSTS }));
+
+    await screen.findByText('Rosin at 180F');
+    expect(screen.queryByRole('link', { name: 'Read more' })).toBeNull();
+  });
+
+  test('the full post page shows every photo in place', async () => {
+    renderAt('/post/7', makeFakeApi({ posts: [makePost(7, KUSH, TEMPLATE, 0, ['u-kush/a.png', 'u-kush/b.png'])] }));
+
+    const post = (await screen.findByText(/Short intro/)).closest('.Post');
+    expect(within(post).getAllByRole('img', { name: /^Photo/ })).toHaveLength(2);
+    expect(within(post).queryByRole('link', { name: 'Read more' })).toBeNull();
   });
 });
 

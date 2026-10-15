@@ -1,3 +1,4 @@
+import { layoutBody, stripPhotoMarkers } from './layout';
 import { validateContact } from './contact';
 import { avatarUrl } from './avatar';
 import { fieldErrorsFromDb } from './dbErrors';
@@ -63,5 +64,37 @@ describe('validateContact', () => {
 
   test('caps the message length', () => {
     expect(validateContact({ email: 'a@b.co', message: 'x'.repeat(5001) }).errors.message).toMatch(/5000/);
+  });
+});
+
+describe('layoutBody (inline photos)', () => {
+  test('places marked photos between paragraphs and keeps the rest for the gallery', () => {
+    const body = 'Intro\n\n[photo 2]\n\nMiddle\n[Photo 1]\nEnd';
+    expect(layoutBody(body, 3)).toEqual({
+      blocks: [
+        { type: 'text', value: 'Intro' },
+        { type: 'image', index: 1 },
+        { type: 'text', value: 'Middle' },
+        { type: 'image', index: 0 },
+        { type: 'text', value: 'End' },
+      ],
+      unplaced: [2],
+    });
+  });
+
+  test('without markers the whole body is one text block and every photo goes to the gallery', () => {
+    expect(layoutBody('Just text', 2)).toEqual({ blocks: [{ type: 'text', value: 'Just text' }], unplaced: [0, 1] });
+  });
+
+  test('markers for missing or repeated photos are dropped, inline mentions are left alone', () => {
+    const body = '[photo 9]\nSee [photo 1] here\n[photo 1]\n[photo 1]';
+    expect(layoutBody(body, 1)).toEqual({
+      blocks: [{ type: 'text', value: 'See [photo 1] here' }, { type: 'image', index: 0 }],
+      unplaced: [],
+    });
+  });
+
+  test('stripPhotoMarkers removes marker lines for the feed preview', () => {
+    expect(stripPhotoMarkers('A\n\n[photo 1]\n\nB')).toBe('A\n\nB');
   });
 });

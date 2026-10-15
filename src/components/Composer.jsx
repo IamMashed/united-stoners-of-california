@@ -13,8 +13,11 @@ import { ACCEPTED_IMAGE_TYPES, MAX_IMAGES, validateImages } from '../lib/media';
 // must return `{ error }`; the box clears itself on success.
 // Edit mode: pass `initialBody` / `initialPaths` (already uploaded images, which the
 // user can remove; `keepPaths` lists the ones left) and `onCancel`.
+// Shown under the post composer (superuser): how the post layout works.
+export const POST_TIP = 'Video links play at the top. Put [photo 1] on its own line to place photo 1 between paragraphs.';
+
 export default function Composer({
-  placeholder, submitLabel, onSubmit, autoFocus = false, initialBody = '', initialPaths = [], onCancel,
+  placeholder, submitLabel, onSubmit, autoFocus = false, initialBody = '', initialPaths = [], onCancel, tip,
 }) {
   const [formErrors, setFormErrors] = useState({});
   const [files, setFiles] = useState([]);
@@ -73,6 +76,7 @@ export default function Composer({
           placeholder={placeholder} aria-label={placeholder}
           isInvalid={!!formErrors.body} className="Composer-input" />
       </div>
+      {tip && <div className="Composer-tip">{tip}</div>}
       {formErrors.body && <div className="Composer-error">{formErrors.body}</div>}
       {keepPaths.length + previews.length > 0 &&
         <div className="ImagePreviews">
@@ -103,7 +107,7 @@ export default function Composer({
             <Button variant="outline-secondary" disabled={busy} onClick={onCancel}>Cancel</Button>
           </>
         :
-          <span className="Composer-hint">Video links embed automatically</span>
+          <span className="Composer-hint">{tip ? '' : 'Video links embed automatically'}</span>
         }
         <Button variant="success" type="submit" disabled={busy} className="Composer-submit">
           {busy ? 'Saving…' : submitLabel}
