@@ -1,3 +1,4 @@
+import { uploadErrorMessage } from '../api/SupabaseApiClient';
 import { layoutBody, stripPhotoMarkers } from './layout';
 import { validateContact } from './contact';
 import { avatarUrl } from './avatar';
@@ -96,5 +97,18 @@ describe('layoutBody (inline photos)', () => {
 
   test('stripPhotoMarkers removes marker lines for the feed preview', () => {
     expect(stripPhotoMarkers('A\n\n[photo 1]\n\nB')).toBe('A\n\nB');
+  });
+});
+
+describe('uploadErrorMessage', () => {
+  test('turns browser network errors into an actionable message', () => {
+    for (const message of ['Load failed', 'TypeError: Failed to fetch', 'tus: failed to upload chunk at offset 0']) {
+      expect(uploadErrorMessage({ message })).toMatch(/interrupted .* try again/i);
+    }
+  });
+
+  test('explains size errors and keeps other messages', () => {
+    expect(uploadErrorMessage({ message: 'Payload too large' })).toMatch(/too large/);
+    expect(uploadErrorMessage({ message: 'new row violates row-level security policy' })).toMatch(/row-level/);
   });
 });

@@ -30,6 +30,7 @@ export default function Composer({
   const [keepVideo, setKeepVideo] = useState(!!initialVideo);
   const [video, setVideo] = useState(null);         // prepared File to upload
   const [preparing, setPreparing] = useState(null); // compression progress 0..1, or null
+  const [uploading, setUploading] = useState(null); // video upload progress 0..1, or null
   const videoInput = useRef();
   const videoPreview = useObjectUrl(video);
   const api = useApi();
@@ -91,7 +92,9 @@ export default function Composer({
       return;
     }
     setBusy(true);
-    const { error } = await onSubmit({ body, files, keepPaths, video, keepVideo });
+    if (video) setUploading(0);
+    const { error } = await onSubmit({ body, files, keepPaths, video, keepVideo, onVideoProgress: setUploading });
+    setUploading(null);
     setBusy(false);
     if (error) {
       setFormErrors(fieldErrorsFromDb(error) || { body: error.message });
@@ -143,6 +146,9 @@ export default function Composer({
       }
       {preparing !== null &&
         <div className="Composer-tip" role="status">Preparing video… {Math.round(preparing * 100)}%</div>
+      }
+      {uploading !== null &&
+        <div className="Composer-tip" role="status">Uploading video… {Math.round(uploading * 100)}%</div>
       }
       {formErrors.video && <div className="Composer-error">{formErrors.video}</div>}
       <div className="Composer-actions">

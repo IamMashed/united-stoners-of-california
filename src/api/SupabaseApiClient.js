@@ -14,6 +14,19 @@ const POST_SELECT = `id, body, image_paths, video_path, created_at, updated_at, 
 const COMMENT_SELECT = `id, post_id, body, image_paths, video_path, created_at, updated_at, ${AUTHOR}`;
 const PROFILE_SELECT = 'id, username, about_me, avatar_url, is_admin, banned_at, created_at, last_seen';
 
+// Browsers report dropped connections with unhelpful messages ("Load failed" in Safari,
+// "Failed to fetch" in Chrome); turn them into something a member can act on.
+export function uploadErrorMessage(err) {
+  const text = String(err?.message || err || '');
+  if (/load failed|failed to fetch|networkerror|network error|tus: failed|xhr/i.test(text)) {
+    return 'The upload was interrupted (weak connection?). Please try again, ideally on Wi-Fi.';
+  }
+  if (/payload too large|413|exceeded the maximum/i.test(text)) {
+    return 'That video is too large to upload. Try a shorter clip.';
+  }
+  return text || 'The upload failed. Please try again.';
+}
+
 function normalizePost(row) {
   const { comments, ...post } = row;
   return { ...post, comment_count: comments?.[0]?.count ?? 0 };
@@ -72,7 +85,7 @@ export default class SupabaseApiClient {
       });
       if (error) {
         await this.removeImages(paths);
-        return { data: null, error };
+        return { data: null, error: { ...error, message: uploadErrorMessage(error) } };
       }
       paths.push(path);
     }
@@ -90,8 +103,10 @@ export default class SupabaseApiClient {
   }
 
   // Uploads one (already prepared, see lib/video.js) video into `<user id>/<uuid>.<ext>`.
-  // Resolves to the storage path, or null when there is no file.
-  async uploadVideo(file) {
+  // Resolves to the storage path, or null when there is no file. In the browser this
+  // uses Supabase's resumable (TUS) endpoint: 6 MB chunks that are retried on their own,
+  // so a flaky phone connection doesn't kill a 30 MB upload. `onProgress(0..1)`.
+  async uploadVideo(file, onProgress = () => {}) {
     if (!file) {
       return { data: null, error: null };
     }
@@ -100,10 +115,39 @@ export default class SupabaseApiClient {
       return { data: null, error: { message: 'You need to be logged in to upload videos.' } };
     }
     const path = `${session.user.id}/${crypto.randomUUID()}.${videoExtension(file.type)}`;
-    const { error } = await this.supabase.storage.from(VIDEO_BUCKET).upload(path, file, {
-      contentType: file.type, cacheControl: '3600', upsert: false,
+    if (typeof window === 'undefined') {
+      // Node scripts (smoke tests): a plain upload is fine.
+      const { error } = await this.supabase.storage.from(VIDEO_BUCKET).upload(path, file, {
+        contentType: file.type, cacheControl: '3600', upsert: false,
+      });
+      return error ? { data: null, error } : { data: path, error: null };
+    }
+    try {
+      await this.resumableUpload(file, path, session.access_token, onProgress);
+      return { data: path, error: null };
+    }
+    catch (err) {
+      return { data: null, error: { message: uploadErrorMessage(err) } };
+    }
+  }
+
+  async resumableUpload(file, path, accessToken, onProgress) {
+    const { Upload } = await import('tus-js-client');
+    return new Promise((resolve, reject) => {
+      const upload = new Upload(file, {
+        endpoint: new URL('upload/resumable', this.supabase.storageUrl.href.replace(/\/?$/, '/')).href,
+        retryDelays: [0, 2000, 5000, 10000, 20000],
+        headers: { authorization: `Bearer ${accessToken}`, apikey: this.supabase.supabaseKey, 'x-upsert': 'false' },
+        uploadDataDuringCreation: true,
+        removeFingerprintOnSuccess: true,
+        metadata: { bucketName: VIDEO_BUCKET, objectName: path, contentType: file.type, cacheControl: '3600' },
+        chunkSize: 6 * 1024 * 1024,   // required by Supabase
+        onProgress: (sent, total) => onProgress(total ? sent / total : 0),
+        onError: reject,
+        onSuccess: () => resolve(),
+      });
+      upload.start();
     });
-    return error ? { data: null, error } : { data: path, error: null };
   }
 
   async removeVideo(path) {
@@ -114,8 +158,8 @@ export default class SupabaseApiClient {
 
   // Uploads the photos and video, then inserts the row; removes the uploads if
   // anything fails.
-  async insertWithMedia(table, values, files, video, select) {
-    const { data: videoPath, error: videoError } = await this.uploadVideo(video);
+  async insertWithMedia(table, values, files, video, select, onVideoProgress) {
+    const { data: videoPath, error: videoError } = await this.uploadVideo(video, onVideoProgress);
     if (videoError) {
       return { data: null, error: videoError };
     }
@@ -165,9 +209,9 @@ export default class SupabaseApiClient {
     return { data: data && normalizePost(data), error };
   }
 
-  async createPost({ body, files, video = null }) {
+  async createPost({ body, files, video = null, onVideoProgress }) {
     const { data, error } = await this.insertWithMedia(
-      'posts', { body: body.trim() }, files, video, POST_SELECT
+      'posts', { body: body.trim() }, files, video, POST_SELECT, onVideoProgress
     );
     return { data: data && normalizePost(data), error };
   }
@@ -176,8 +220,8 @@ export default class SupabaseApiClient {
   // new uploads appended after them. Video: `keepVideo` keeps the current one, `video`
   // replaces it with a new upload, neither removes it. Dropped files are removed from
   // storage once the update succeeds; new uploads are removed again if it fails.
-  async updatePost(post, { body, keepPaths, files, keepVideo = !!post.video_path, video = null }) {
-    const { data: newVideo, error: videoError } = await this.uploadVideo(video);
+  async updatePost(post, { body, keepPaths, files, keepVideo = !!post.video_path, video = null, onVideoProgress }) {
+    const { data: newVideo, error: videoError } = await this.uploadVideo(video, onVideoProgress);
     if (videoError) {
       return { data: null, error: videoError };
     }
@@ -229,9 +273,9 @@ export default class SupabaseApiClient {
     );
   }
 
-  async createComment(postId, { body, files, video = null }) {
+  async createComment(postId, { body, files, video = null, onVideoProgress }) {
     return this.insertWithMedia(
-      'comments', { post_id: postId, body: body.trim() }, files, video, COMMENT_SELECT
+      'comments', { post_id: postId, body: body.trim() }, files, video, COMMENT_SELECT, onVideoProgress
     );
   }
 

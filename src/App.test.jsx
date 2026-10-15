@@ -348,7 +348,7 @@ describe('editing posts', () => {
     expect(within(post).getByText(/edited/)).toBeInTheDocument();
     expect(within(post).queryByRole('img', { name: 'Photo 1' })).toBeNull();
     expect(api.updatePost).toHaveBeenCalledWith(withPhoto,
-      { body: 'Rosin at 190F', keepPaths: [], files: [], video: null, keepVideo: false });
+      expect.objectContaining({ body: 'Rosin at 190F', keepPaths: [], files: [], video: null, keepVideo: false }));
   });
 
   test('cancel leaves the post unchanged', async () => {

@@ -27,7 +27,8 @@
     "react": "^19.3.0",
     "react-bootstrap": "^2.10.10",
     "react-dom": "^19.3.0",
-    "react-router-dom": "^7.18.4"
+    "react-router-dom": "^7.18.4",
+    "tus-js-client": "^4.3.1"
   },
   "devDependencies": {
     "@cloudflare/vite-plugin": "^1.63.2",
