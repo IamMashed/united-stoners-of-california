@@ -15,6 +15,7 @@ export default function EditUserPage() {
   const usernameField = useRef();
   const emailField = useRef();
   const aboutMeField = useRef();
+  const [notify, setNotify] = useState();  // undefined while loading
   const api = useApi();
   const { user, setUser } = useUser();
   const flash = useFlash();
@@ -26,6 +27,14 @@ export default function EditUserPage() {
     aboutMeField.current.value = user.about_me;
     usernameField.current.focus();
   }, [user]);
+
+  useEffect(() => {
+    let active = true;
+    api.getEmailPreferences(user.id).then(({ data }) => {
+      if (active) setNotify(data ? data.notify_new_posts : null);
+    });
+    return () => { active = false; };
+  }, [api, user.id]);
 
   const onSubmit = async (event) => {
     event.preventDefault();
@@ -42,6 +51,9 @@ export default function EditUserPage() {
     if (error) {
       setFormErrors(fieldErrorsFromDb(error) || {});
       return;
+    }
+    if (typeof notify === 'boolean') {
+      await api.setNotifyNewPosts(user.id, notify);
     }
 
     if (email && email !== user.email) {
@@ -74,6 +86,12 @@ export default function EditUserPage() {
           name="aboutMe" label="About Me" as="textarea" rows={3}
           placeholder="Favorite strains, growers, how you consume..."
           error={formErrors.about_me} fieldRef={aboutMeField} />
+        {typeof notify === 'boolean' &&
+          <Form.Check
+            type="switch" id="notify-new-posts" className="InputField"
+            label="Email me when a new post is published"
+            checked={notify} onChange={(e) => setNotify(e.target.checked)} />
+        }
         <Button variant="success" type="submit">Save</Button>
       </Form>
     </Body>

@@ -26,6 +26,11 @@ strains, growers, dispensaries, grow and extraction tips.
   `contact_messages` (readable only by the superuser) and emails it to the owner via Resend.
   Until `RESEND_API_KEY` is set, messages are stored but not emailed.
 
+- **New-post emails**: when the superuser publishes a post, every confirmed member who hasn't
+  opted out gets an email with a link to it (`worker/notify.js`, Resend batch API). Each post
+  is announced once (`posts.notified_at`). Emails carry a one-click unsubscribe link, and
+  members can switch them off under Edit profile (`email_preferences`).
+
 All of this is enforced in the database (RLS + column grants + storage policies), not only in
 the UI: a member calling the API directly still cannot create a post.
 

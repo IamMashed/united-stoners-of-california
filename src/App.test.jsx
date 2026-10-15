@@ -177,6 +177,44 @@ describe('post layout', () => {
   });
 });
 
+describe('new post emails', () => {
+  test('publishing a post emails members and says how many got it', async () => {
+    const api = makeFakeApi({ loggedInAs: KUSH, posts: POSTS });
+    renderAt('/', api);
+
+    await userEvent.type(await screen.findByPlaceholderText(/Share a strain/), 'Harvest day');
+    await userEvent.click(screen.getByRole('button', { name: 'Post' }));
+
+    expect(await screen.findByText('Post published. 2 of 2 members were emailed.')).toBeInTheDocument();
+    expect(api.notifyNewPost).toHaveBeenCalledWith(999);
+  });
+
+  test('if the emails fail the post stays published and the superuser is told', async () => {
+    const api = makeFakeApi({ loggedInAs: KUSH, posts: POSTS });
+    api.notifyNewPost.mockResolvedValue({ data: null, error: { status: 503, message: 'Notifications are not configured.' } });
+    renderAt('/', api);
+
+    await userEvent.type(await screen.findByPlaceholderText(/Share a strain/), 'Harvest day');
+    await userEvent.click(screen.getByRole('button', { name: 'Post' }));
+
+    expect(await screen.findByText(/member emails failed: Notifications are not configured/)).toBeInTheDocument();
+    expect(screen.getByText('Harvest day')).toBeInTheDocument();
+  });
+
+  test('members can turn new-post emails off under Edit profile', async () => {
+    const api = makeFakeApi({ loggedInAs: HASH });
+    renderAt('/edit', api);
+
+    const toggle = await screen.findByRole('checkbox', { name: 'Email me when a new post is published' });
+    expect(toggle).toBeChecked();
+    await userEvent.click(toggle);
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    expect(await screen.findByText('Your profile has been updated.')).toBeInTheDocument();
+    expect(api.setNotifyNewPosts).toHaveBeenCalledWith('u-hash', false);
+  });
+});
+
 describe('feed preview', () => {
   const TEMPLATE = 'https://youtu.be/AeP0MTL-NH8\n\nShort intro.\n\n[photo 1]\n\nMore text.\n\n[photo 2]\n\nThe end.';
 

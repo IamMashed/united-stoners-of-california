@@ -2,7 +2,7 @@
 -- Verifies the signup trigger, RLS policies and column grants that protect the
 -- PostgREST API. Everything runs in a transaction and is rolled back.
 begin;
-select plan(55);
+select plan(63);
 
 -------------------------------------------------------------------------------
 -- Fixtures (as postgres). The auth trigger creates the profiles.
@@ -252,6 +252,46 @@ select set_config('request.jwt.claims',
 select results_eq($$select message from public.contact_messages where email = 'fan@test.local'$$,
   $$values ('hello there')$$, 'the superuser can read contact messages');
 reset role;
+
+-------------------------------------------------------------------------------
+-- New-post email preferences
+-------------------------------------------------------------------------------
+select is((select count(*)::int from public.email_preferences
+           where user_id in ('bbbbbbbb-0000-0000-0000-000000000002', 'cccccccc-0000-0000-0000-000000000003')
+             and notify_new_posts),
+  2, 'new members are opted in to new-post emails');
+
+set local role authenticated;
+select set_config('request.jwt.claims',
+  '{"sub":"bbbbbbbb-0000-0000-0000-000000000002","role":"authenticated"}', true);
+select results_eq($$select count(*)::int from public.email_preferences$$, $$values (1)$$,
+  'members only see their own email preferences');
+select throws_ok($$select unsubscribe_token from public.email_preferences$$,
+  '42501', null, 'members cannot read unsubscribe tokens');
+select isnt_empty($$update public.email_preferences set notify_new_posts = false
+  where user_id = 'bbbbbbbb-0000-0000-0000-000000000002' returning user_id$$,
+  'members can turn new-post emails off');
+select is_empty($$update public.email_preferences set notify_new_posts = false
+  where user_id = 'cccccccc-0000-0000-0000-000000000003' returning user_id$$,
+  'members cannot change someone else''s email preferences');
+select throws_ok($$select * from public.new_post_recipients('aaaaaaaa-0000-0000-0000-000000000001')$$,
+  '42501', null, 'members cannot list email recipients');
+reset role;
+
+set local role authenticated;
+select set_config('request.jwt.claims',
+  '{"sub":"aaaaaaaa-0000-0000-0000-000000000001","role":"authenticated"}', true);
+select throws_ok($$update public.posts set notified_at = null$$,
+  '42501', null, 'not even the superuser can reset notified_at from the browser');
+reset role;
+
+update auth.users set email_confirmed_at = now()
+  where id in ('bbbbbbbb-0000-0000-0000-000000000002', 'cccccccc-0000-0000-0000-000000000003');
+select results_eq(
+  $$select username from public.new_post_recipients('aaaaaaaa-0000-0000-0000-000000000001')
+    where username in ('bob', 'carol', 'alice') order by username$$,
+  $$values ('carol'::text)$$,
+  'recipients are confirmed, opted-in members other than the author');
 
 -------------------------------------------------------------------------------
 -- Cascades

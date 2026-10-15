@@ -72,6 +72,9 @@ export function makeFakeApi({
       data: profiles.find((p) => p.username.toLowerCase() === name.toLowerCase()) ?? null, error: null,
     })),
     touchLastSeen: vi.fn(async () => ({ data: null, error: null })),
+    updateProfile: vi.fn(async (id, values) => ({
+      data: { ...profiles.find((p) => p.id === id), ...values }, error: null,
+    })),
     usernameAvailable: vi.fn(async (name) => ({
       data: !profiles.some((p) => p.username.toLowerCase() === name.toLowerCase()), error: null,
     })),
@@ -100,6 +103,9 @@ export function makeFakeApi({
     deleteComment: vi.fn(async () => ({ data: null, error: null })),
     setBanned: vi.fn(async (userId, banned) => ({ data: banned ? '2026-10-14T00:00:00Z' : null, error: null })),
     sendContactMessage: vi.fn(async () => ({ data: { ok: true }, error: null })),
+    notifyNewPost: vi.fn(async () => ({ data: { recipients: 2, sent: 2, failed: 0 }, error: null })),
+    getEmailPreferences: vi.fn(async () => ({ data: { notify_new_posts: true }, error: null })),
+    setNotifyNewPosts: vi.fn(async (userId, enabled) => ({ data: { notify_new_posts: enabled }, error: null })),
     mediaUrl: (path) => `https://media.test/${path}`,
   };
 }

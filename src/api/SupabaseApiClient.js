@@ -223,21 +223,47 @@ export default class SupabaseApiClient {
     return this.run(this.supabase.rpc('username_available', { name }));
   }
 
+  // ---- notifications ------------------------------------------------------
+
+  // Superuser only: asks the Worker (worker/notify.js) to email members about a new
+  // post. Each post is announced at most once. Resolves to { recipients, sent, failed }.
+  async notifyNewPost(postId) {
+    return this.postToWorker('/api/notify-new-post', { postId });
+  }
+
+  async getEmailPreferences(userId) {
+    return this.run(
+      this.supabase.from('email_preferences').select('notify_new_posts').eq('user_id', userId).maybeSingle()
+    );
+  }
+
+  async setNotifyNewPosts(userId, enabled) {
+    return this.run(
+      this.supabase.from('email_preferences').update({ notify_new_posts: enabled })
+        .eq('user_id', userId).select('notify_new_posts').single()
+    );
+  }
+
   // ---- contact form -------------------------------------------------------
 
   // Posts to the Worker (worker/contact.js), which stores and emails the message.
   // Sends the access token when logged in so the message is tagged with the member.
   async sendContactMessage({ email, phone, message, website }) {
+    return this.postToWorker('/api/contact', { email, phone, message, website });
+  }
+
+  // POSTs JSON to one of our Worker endpoints, with the access token when logged in.
+  async postToWorker(path, payload) {
     const { data: { session } } = await this.supabase.auth.getSession();
     let response;
     try {
-      response = await fetch('/api/contact', {
+      response = await fetch(path, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           ...(session ? { Authorization: `Bearer ${session.access_token}` } : {}),
         },
-        body: JSON.stringify({ email, phone, message, website }),
+        body: JSON.stringify(payload),
       });
     }
     catch (err) {
@@ -249,7 +275,7 @@ export default class SupabaseApiClient {
     }
     return {
       data: null,
-      error: { status: response.status, message: body.error || 'Could not send your message.', fields: body.errors },
+      error: { status: response.status, message: body.error || 'Request failed.', fields: body.errors },
     };
   }
 

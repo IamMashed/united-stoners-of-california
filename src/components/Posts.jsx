@@ -40,8 +40,21 @@ export default function Posts({ authorId }) {
     const { data, error } = await api.createPost(values);
     if (!error) {
       setPosts((current) => [data, ...(current || [])]);
+      announce(data.id);
     }
     return { error };
+  };
+
+  // Emails members about the new post; the post is already live either way.
+  const announce = async (postId) => {
+    const { data, error } = await api.notifyNewPost(postId);
+    if (error) {
+      flash(`Post published, but member emails failed: ${error.message}`, 'warning');
+    }
+    else {
+      flash(data.recipients === 1 ? 'Post published. 1 member was emailed.'
+        : `Post published. ${data.sent} of ${data.recipients} members were emailed.`, 'success');
+    }
   };
 
   const deletePost = useCallback(async (post) => {

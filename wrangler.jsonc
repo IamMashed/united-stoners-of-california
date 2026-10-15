@@ -19,6 +19,7 @@
   // dev reads them, and a dev SUPABASE_URL, from the gitignored .dev.vars.
   "vars": {
     "SUPABASE_URL": "https://psarkbkrhukowqdivkto.supabase.co",
+    "SITE_URL": "https://unitedstoners.club",
     "CONTACT_FROM": "United Stoners of California <no-reply@unitedstoners.club>"
   },
   // At most 3 contact messages per minute per IP.
