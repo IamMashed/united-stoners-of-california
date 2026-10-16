@@ -24,6 +24,8 @@
       "senderEmail": "no-reply@unitedstoners.club",
       "senderName": "United Stoners of California",
       "emailsPerHour": 100
-    }
+    },
+    "plan": "pro",
+    "leakedPasswordProtection": true
   }
 }

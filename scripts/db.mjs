@@ -238,6 +238,8 @@ end $$;`);
       password_min_length: 8,
       external_email_enabled: true,
       disable_signup: false,
+      // Rejects passwords found in data breaches (HaveIBeenPwned); Pro plan only.
+      ...(env.leakedPasswordProtection ? { password_hibp_enabled: true } : {}),
       ...smtpSettings(env),
     });
     console.log(`${env.name}: auth config updated (site_url=${env.siteUrl}`
