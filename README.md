@@ -1,7 +1,7 @@
 # United Stoners of California 🌿
 
 A cannabis education community for California adults (21+). Admins write posts, members
-comment (photos, videos, links), anyone can read. Live at https://unitedstoners.club.
+comment (photos, videos, links), anyone can read.
 
 **Stack:** React + Vite (frontend), Supabase (Postgres, Auth, Storage), Cloudflare Workers
 (hosting + a small API in `worker/`), Resend (email). Access control lives in the database
