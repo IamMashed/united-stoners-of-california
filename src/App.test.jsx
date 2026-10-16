@@ -364,6 +364,47 @@ describe('editing posts', () => {
   });
 });
 
+describe('pinning posts', () => {
+  const PINNED = { ...makePost(2, KUSH, 'Welcome!', 0), pinned_at: '2026-10-19T00:00:00Z' };
+
+  test('only admins get a pin button', async () => {
+    renderAt('/', makeFakeApi({ loggedInAs: HASH, posts: POSTS }));
+    await screen.findByText('Rosin at 180F');
+    expect(screen.queryByRole('button', { name: 'Pin' })).toBeNull();
+  });
+
+  test('an admin pins a post and it moves above the others', async () => {
+    const api = makeFakeApi({ loggedInAs: KUSH, posts: [...POSTS, makePost(0, KUSH, 'Old news')] });
+    renderAt('/', api);
+
+    const post = (await screen.findByText('Old news')).closest('.Post');
+    await userEvent.click(within(post).getByRole('button', { name: 'Pin' }));
+
+    expect(api.setPostPinned).toHaveBeenCalledWith(expect.objectContaining({ id: 0 }), true);
+    const articles = await screen.findAllByRole('article');
+    expect(within(articles[0]).getByText('Old news')).toBeInTheDocument();
+    expect(within(articles[0]).getByText('Pinned')).toBeInTheDocument();
+  });
+
+  test('an admin unpins a post', async () => {
+    const api = makeFakeApi({ loggedInAs: KUSH, posts: [PINNED, ...POSTS] });
+    renderAt('/', api);
+
+    const post = (await screen.findByText('Welcome!')).closest('.Post');
+    await userEvent.click(within(post).getByRole('button', { name: 'Unpin' }));
+
+    expect(api.setPostPinned).toHaveBeenCalledWith(PINNED, false);
+    expect(screen.queryByText('Pinned')).toBeNull();
+  });
+
+  test('visitors see the Pinned label but no button', async () => {
+    renderAt('/', makeFakeApi({ posts: [PINNED, ...POSTS] }));
+    const post = (await screen.findByText('Welcome!')).closest('.Post');
+    expect(within(post).getByText('Pinned')).toBeInTheDocument();
+    expect(within(post).queryByRole('button', { name: 'Unpin' })).toBeNull();
+  });
+});
+
 describe('deleting comments', () => {
   test('a member deletes their own comment and the count drops', async () => {
     const api = makeFakeApi({ loggedInAs: HASH, posts: POSTS, comments: COMMENTS });

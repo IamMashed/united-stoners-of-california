@@ -379,6 +379,24 @@ a {
   background: #f1f1f1;
 }
 
+.IconButton-active {
+  color: var(--usoc-green);
+  background: #e8f3ec;
+}
+
+.Item-pinned {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  flex-shrink: 0;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: #e8f3ec;
+  color: var(--usoc-green);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
 .IconButton-danger:hover,
 .IconButton-danger:focus-visible {
   color: #c62828;

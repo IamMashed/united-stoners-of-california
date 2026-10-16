@@ -8,7 +8,7 @@ import Composer, { POST_TIP } from './Composer';
 import Post, { commentLabel, CommentIcon } from './Post';
 import More from './More';
 
-// The list of posts. Only the superuser sees the compose box and Delete buttons.
+// The list of posts. Only admins see the compose box, Pin and Delete buttons.
 export default function Posts({ authorId }) {
   const [posts, setPosts] = useState();
   const [more, setMore] = useState(false);
@@ -66,6 +66,21 @@ export default function Posts({ authorId }) {
     }
   }, [api, flash]);
 
+  // Pinned posts sort first, newest pin first; the rest keep their order.
+  const togglePin = useCallback(async (post) => {
+    const pinning = !post.pinned_at;
+    const { data, error } = await api.setPostPinned(post, pinning);
+    if (!error) {
+      setPosts((current) => {
+        const updated = current.map((p) => p.id === post.id ? { ...p, pinned_at: data.pinned_at } : p);
+        const pinned = updated.filter((p) => p.pinned_at).sort((a, b) => b.pinned_at.localeCompare(a.pinned_at));
+        const rest = updated.filter((p) => !p.pinned_at).sort((a, b) => b.id - a.id);
+        return [...pinned, ...rest];
+      });
+      flash(pinning ? 'Post pinned to the top.' : 'Post unpinned.', 'success');
+    }
+  }, [api, flash]);
+
   return (
     <>
       {isAdmin && !authorId &&
@@ -80,7 +95,8 @@ export default function Posts({ authorId }) {
         <p className="Empty">There are no posts yet.</p>
       :
         posts.map((post) =>
-          <Post key={post.id} item={post} className="Card Post" canDelete={isAdmin} onDelete={deletePost}
+          <Post key={post.id} item={post} className="Card Post" canPin={isAdmin && !authorId} onPin={togglePin}
+            canDelete={isAdmin} onDelete={deletePost}
             readMoreTo={'/post/' + post.id}
             footer={
               <Link to={'/post/' + post.id} className="Item-action">

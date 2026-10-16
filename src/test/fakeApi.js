@@ -16,7 +16,7 @@ function authorOf(profile) {
 
 export function makePost(id, author, body, commentCount = 0, imagePaths = []) {
   return {
-    id, body, image_paths: imagePaths, video_path: null, created_at: '2026-10-13T00:00:00Z', updated_at: null,
+    id, body, image_paths: imagePaths, video_path: null, pinned_at: null, created_at: '2026-10-13T00:00:00Z', updated_at: null,
     author: authorOf(author), comment_count: commentCount,
   };
 }
@@ -91,6 +91,9 @@ export function makeFakeApi({
         image_paths: [...keepPaths, ...files.map((f) => `${loggedInAs.id}/${f.name}`)],
       },
       error: null,
+    })),
+    setPostPinned: vi.fn(async (post, pinned) => ({
+      data: { ...post, pinned_at: pinned ? '2026-10-19T00:00:00Z' : null }, error: null,
     })),
     deletePost: vi.fn(async () => ({ data: null, error: null })),
     listComments: vi.fn(async (postId) => ({ data: comments.filter((c) => c.post_id === postId), error: null })),

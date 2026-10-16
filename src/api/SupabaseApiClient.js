@@ -10,7 +10,7 @@ export const MEDIA_BUCKET = 'media';
 export const VIDEO_BUCKET = 'videos';
 
 const AUTHOR = 'author:profiles(id, username, avatar_url, is_admin)';
-const POST_SELECT = `id, body, image_paths, video_path, created_at, updated_at, ${AUTHOR}, comments(count)`;
+const POST_SELECT = `id, body, image_paths, video_path, pinned_at, created_at, updated_at, ${AUTHOR}, comments(count)`;
 const COMMENT_SELECT = `id, post_id, body, image_paths, video_path, created_at, updated_at, ${AUTHOR}`;
 const PROFILE_SELECT = 'id, username, about_me, avatar_url, is_admin, banned_at, created_at, last_seen';
 
@@ -186,22 +186,38 @@ export default class SupabaseApiClient {
   // ---- posts ---------------------------------------------------------------
 
   // Newest first, keyset pagination on id. `authorId` limits to one author.
+  // Pinned posts (newest pin first) come before everything else on the first page of the
+  // main list. They are not repeated on later pages, which page through unpinned posts by id.
   async listPosts({ authorId, beforeId } = {}) {
-    let query = this.supabase.from('posts').select(POST_SELECT);
-    if (authorId) {
-      query = query.eq('author_id', authorId);
+    const base = () => {
+      let query = this.supabase.from('posts').select(POST_SELECT);
+      if (authorId) {
+        query = query.eq('author_id', authorId);
+      }
+      return query;
+    };
+    const showPinned = !authorId && !beforeId;
+    let unpinned = base().order('id', { ascending: false }).limit(PAGE_SIZE + 1);
+    if (!authorId) {
+      unpinned = unpinned.is('pinned_at', null);
     }
     if (beforeId) {
-      query = query.lt('id', beforeId);
+      unpinned = unpinned.lt('id', beforeId);
     }
-    const { data, error } = await this.run(
-      query.order('id', { ascending: false }).limit(PAGE_SIZE + 1)
-    );
+    const [pinned, rest] = await Promise.all([
+      showPinned ? this.run(base().not('pinned_at', 'is', null).order('pinned_at', { ascending: false }))
+        : { data: [], error: null },
+      this.run(unpinned),
+    ]);
+    const error = pinned.error || rest.error;
     if (error) {
       return { data: null, error };
     }
     return {
-      data: { posts: data.slice(0, PAGE_SIZE).map(normalizePost), more: data.length > PAGE_SIZE },
+      data: {
+        posts: [...pinned.data, ...rest.data.slice(0, PAGE_SIZE)].map(normalizePost),
+        more: rest.data.length > PAGE_SIZE,
+      },
       error: null,
     };
   }
@@ -250,6 +266,16 @@ export default class SupabaseApiClient {
       await this.removeVideo(post.video_path);
     }
     return { data: normalizePost(result.data), error: null };
+  }
+
+  // Admins only.
+  async setPostPinned(post, pinned) {
+    const { data, error } = await this.run(
+      this.supabase.from('posts')
+        .update({ pinned_at: pinned ? new Date().toISOString() : null })
+        .eq('id', post.id).select(POST_SELECT).single()
+    );
+    return { data: data && normalizePost(data), error };
   }
 
   async deletePost(post) {

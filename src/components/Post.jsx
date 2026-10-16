@@ -11,7 +11,7 @@ export function commentLabel(count) {
 // Used for both posts (className "Post", rendered as a card) and comments.
 // Layout is mobile-first: a compact author row, then full-width content.
 export default memo(function Post({
-  item, avatarSize = 40, className = 'Post', canEdit, onEdit, canDelete, onDelete, footer, readMoreTo,
+  item, avatarSize = 40, className = 'Post', canEdit, onEdit, canPin, onPin, canDelete, onDelete, footer, readMoreTo,
 }) {
   return (
     <article className={className}>
@@ -22,6 +22,7 @@ export default memo(function Post({
             <Link to={'/user/' + item.author.username} className="Item-author">
               {item.author.username}
             </Link>
+            {item.pinned_at && <span className="Item-pinned"><PinIcon size={12} /> Pinned</span>}
           </div>
           <span className="Item-time">
             <TimeAgo isoDate={item.created_at} />
@@ -32,6 +33,13 @@ export default memo(function Post({
           <button type="button" className="IconButton" aria-label="Edit"
             title="Edit" onClick={() => onEdit(item)}>
             <PencilIcon />
+          </button>
+        }
+        {canPin &&
+          <button type="button" className={'IconButton' + (item.pinned_at ? ' IconButton-active' : '')}
+            aria-label={item.pinned_at ? 'Unpin' : 'Pin'} aria-pressed={!!item.pinned_at}
+            title={item.pinned_at ? 'Unpin' : 'Pin to top'} onClick={() => onPin(item)}>
+            <PinIcon />
           </button>
         }
         {canDelete &&
@@ -46,6 +54,15 @@ export default memo(function Post({
     </article>
   );
 });
+
+function PinIcon({ size = 18 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M12 17v5M9 3h6l-1 7 3 3v2H7v-2l3-3z" />
+    </svg>
+  );
+}
 
 function PencilIcon() {
   return (

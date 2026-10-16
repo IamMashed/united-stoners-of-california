@@ -69,6 +69,15 @@ function PostThread({ postId }) {
     return { error };
   };
 
+  const togglePin = async () => {
+    const pinning = !post.pinned_at;
+    const { data, error } = await api.setPostPinned(post, pinning);
+    if (!error) {
+      setPost((current) => ({ ...current, pinned_at: data.pinned_at }));
+      flash(pinning ? 'Post pinned to the top.' : 'Post unpinned.', 'success');
+    }
+  };
+
   const deletePost = async () => {
     if (!window.confirm('Delete this post and all of its comments?')) return;
     const { error } = await api.deletePost(post);
@@ -94,6 +103,7 @@ function PostThread({ postId }) {
           :
             <Post item={post} className="Card Post Post-full"
               canEdit={isAdmin} onEdit={() => setEditing(true)}
+              canPin={isAdmin} onPin={togglePin}
               canDelete={isAdmin} onDelete={deletePost} />
           }
           <section className="Card Comments" aria-label="Comments">

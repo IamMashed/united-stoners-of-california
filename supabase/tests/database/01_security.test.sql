@@ -2,7 +2,7 @@
 -- Verifies the signup trigger, RLS policies and column grants that protect the
 -- PostgREST API. Everything runs in a transaction and is rolled back.
 begin;
-select plan(87);
+select plan(91);
 
 -------------------------------------------------------------------------------
 -- Fixtures (as postgres). The auth trigger creates the profiles.
@@ -437,6 +437,25 @@ select throws_ok(
   $$insert into public.contact_messages (user_id, message, email)
     values ('cccccccc-0000-0000-0000-000000000003', 'msg 6', 'c@test.local')$$,
   'PT429', null, 'members are limited to 5 contact messages a day');
+
+-------------------------------------------------------------------------------
+-- Pinned posts
+-------------------------------------------------------------------------------
+set local role authenticated;
+select set_config('request.jwt.claims',
+  '{"sub":"bbbbbbbb-0000-0000-0000-000000000002","role":"authenticated"}', true);
+select is_empty($$update public.posts set pinned_at = now() returning id$$,
+  'members cannot pin posts');
+select set_config('request.jwt.claims',
+  '{"sub":"aaaaaaaa-0000-0000-0000-000000000001","role":"authenticated"}', true);
+select lives_ok($$update public.posts set pinned_at = now() where body = 'admin post'$$,
+  'admins can pin posts');
+select results_eq(
+  $$select pinned_at is not null, updated_at is null from public.posts where body = 'admin post'$$,
+  $$values (true, true)$$, 'pinning does not mark the post as edited');
+select lives_ok($$update public.posts set pinned_at = null where body = 'admin post'$$,
+  'admins can unpin posts');
+reset role;
 
 -------------------------------------------------------------------------------
 -- Cascades
