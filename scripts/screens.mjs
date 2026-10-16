@@ -4,6 +4,7 @@
 //
 //   npm run screens               all pages, all viewports
 //   npm run screens -- home post  only pages whose name contains "home" or "post"
+import { seedPassword } from './seedPassword.mjs';
 import { mkdirSync } from 'node:fs';
 import { createServer } from 'vite';
 import { chromium } from 'playwright-core';
@@ -64,7 +65,7 @@ for (const vp of VIEWPORTS) {
         const login = await context.newPage();
         await login.goto(`${base}/login`);
         await login.getByLabel('Email address').fill(email);
-        await login.getByLabel('Password').fill('password123');
+        await login.getByLabel('Password').fill(seedPassword());
         await login.getByRole('button', { name: 'Login' }).click();
         await login.waitForURL(`${base}/`);
         await login.close();

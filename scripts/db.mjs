@@ -9,6 +9,7 @@
 //   migrate   apply pending supabase/migrations/*.sql (recorded in the same
 //             supabase_migrations.schema_migrations table the CLI uses)
 //   seed      run supabase/seed.sql (dev only)
+//   rotate-seed-password  re-key the dev demo accounts (password in the Keychain)
 //   test      run supabase/tests/database/*.test.sql with pgTAP (dev only; always rolled back)
 //   auth      push auth settings (site URL, redirects, confirmations, password length,
 //             custom SMTP when environments.json has an `smtp` block)
@@ -22,6 +23,7 @@
 //
 // Auth: SUPABASE_ACCESS_TOKEN, or the token saved by `supabase login` (macOS Keychain).
 
+import { seedPassword } from './seedPassword.mjs';
 import { readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { join, dirname } from 'node:path';
@@ -183,8 +185,18 @@ values (${quote(m.version)}, ${quote(m.name)}, array[${quote(m.body)}]);`);
       console.log(`${env.name}: already has data, skipping seed`);
       return;
     }
-    sql(env.ref, readFileSync(join(ROOT, 'supabase/seed.sql'), 'utf8'));
+    const password = seedPassword({ create: true }).replaceAll("'", "''");
+    sql(env.ref, readFileSync(join(ROOT, 'supabase/seed.sql'), 'utf8').replaceAll('__SEED_PASSWORD__', password));
     console.log(`${env.name}: seeded`);
+  },
+
+  // Sets the dev demo accounts' password to the one from scripts/seedPassword.mjs.
+  'rotate-seed-password'(env) {
+    requireDev(env, 'rotate-seed-password');
+    const password = seedPassword({ create: true }).replaceAll("'", "''");
+    sql(env.ref, `update auth.users set encrypted_password = extensions.crypt('${password}', extensions.gen_salt('bf'))
+      where email in ('kushking@example.com', 'hashqueen@example.com')`);
+    console.log(`${env.name}: demo account passwords updated (Keychain service usoc-dev-seed)`);
   },
 
   test(env) {
@@ -336,7 +348,7 @@ end $$;`);
 
 const [command, envName] = process.argv.slice(2);
 if (!commands[command] || !envName) {
-  console.error('Usage: node scripts/db.mjs <status|migrate|seed|test|auth|env|make-admin|remove-admin|query|worker-secrets> <dev|prod> [arg]');
+  console.error('Usage: node scripts/db.mjs <status|migrate|seed|rotate-seed-password|test|auth|env|make-admin|remove-admin|query|worker-secrets> <dev|prod> [arg]');
   process.exit(2);
 }
 try {

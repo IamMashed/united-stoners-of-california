@@ -1,5 +1,5 @@
 -- Dev seed data. Run with `npm run db:seed` (refused on prod).
--- Demo logins (password for both: password123):
+-- Demo logins (password: scripts/seedPassword.mjs, never committed):
 --   kushking@example.com   / kushking   (the superuser: writes posts)
 --   hashqueen@example.com  / hashqueen  (regular member: comments)
 
@@ -19,7 +19,7 @@ begin
       confirmation_token, email_change, email_change_token_new, recovery_token
     ) values (
       '00000000-0000-0000-0000-000000000000', u.id, 'authenticated', 'authenticated', u.email,
-      extensions.crypt('password123', extensions.gen_salt('bf')), now(),
+      extensions.crypt('__SEED_PASSWORD__', extensions.gen_salt('bf')), now(),
       '{"provider":"email","providers":["email"]}',
       jsonb_build_object('username', u.username), now(), now(), '', '', '', ''
     );

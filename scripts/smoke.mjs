@@ -2,6 +2,7 @@
 // Requires seed data (`npm run db:seed`, kushking = superuser). Run: npm run test:smoke
 // Signup is not exercised here: on hosted Supabase it sends real emails.
 // Everything the test creates (posts, comments, images) is deleted again.
+import { seedPassword } from './seedPassword.mjs';
 import { readFileSync } from 'node:fs';
 import { createClient } from '@supabase/supabase-js';
 import { fetch as undiciFetch, EnvHttpProxyAgent } from 'undici';
@@ -27,7 +28,7 @@ function check(condition, message) {
 
 async function loginAs(email) {
   const client = makeClient();
-  const { data, error } = await client.auth.signInWithPassword({ email, password: 'password123' });
+  const { data, error } = await client.auth.signInWithPassword({ email, password: seedPassword() });
   if (error) throw new Error(`login ${email}: ${error.message}`);
   return { api: new SupabaseApiClient(client), id: data.user.id };
 }
